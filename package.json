@@ -1,0 +1,16 @@
+{
+  "name": "medical-aesthetics-miniapp",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["cloudfunctions/_shared", "admin"],
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration --runInBand",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "eslint": "^8.0.0"
+  }
+}

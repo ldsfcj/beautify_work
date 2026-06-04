@@ -1,0 +1,10 @@
+node_modules/
+.miniprogram/
+.DS_Store
+*.log
+.superpowers/
+coverage/
+dist/
+.env
+.env.local
+cloudfunctions/*/node_modules/

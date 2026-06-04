@@ -1,0 +1,21 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/dashboard/index",
+    "pages/generate/index",
+    "pages/generating/index",
+    "pages/result/index",
+    "pages/history/index",
+    "pages/recharge/index",
+    "pages/profile/index",
+    "pages/order-detail/index",
+    "pages/agreement/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#d4a5a0",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "AI 美颜预览"
+  },
+  "cloud": true,
+  "sitemapLocation": "sitemap.json"
+}
