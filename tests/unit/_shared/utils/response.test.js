@@ -1,5 +1,10 @@
-// Placeholder for Runbook Task 6 — response.test.js
-// See: docs/superpowers/execution/2026-06-04-医美咨询小程序-runbook.md Task 6
-//
-// TODO: replace this stub with the implementation from Runbook Task 6
-module.exports = { _todo: 'Runbook Task 6' };
+const { ok, fail, CODES } = require('../../../../cloudfunctions/_shared/utils/response');
+
+test('ok returns success envelope', () => {
+  expect(ok({ a: 1 })).toEqual({ code: 0, message: 'ok', data: { a: 1 } });
+});
+test('fail returns error envelope', () => {
+  expect(fail(CODES.NOT_FOUND, 'not found')).toEqual({
+    code: 404, message: 'not found', data: null,
+  });
+});
