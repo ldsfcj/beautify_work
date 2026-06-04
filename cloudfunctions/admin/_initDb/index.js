@@ -1,5 +1,8 @@
-// Placeholder for Runbook Task 4 — run migrations
-// See: docs/superpowers/execution/2026-06-04-医美咨询小程序-runbook.md Task 4
-//
-// TODO: replace this stub with the implementation from Runbook Task 4
-module.exports = { _todo: 'Runbook Task 4' };
+const { run } = require('../../../migrations/runner');
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+exports.main = async () => {
+  await run(cloud.database());
+  return { ok: true };
+};
