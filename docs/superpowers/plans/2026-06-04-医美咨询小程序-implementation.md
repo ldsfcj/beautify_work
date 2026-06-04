@@ -177,8 +177,8 @@
 ```bash
 cd /home/ubuntu/personal_work
 git init
-git config user.name "陈工"
-git config user.email "cheng@example.com"
+git config user.name "chenjin"
+git config user.email "ldsfcj@outlook.com"
 ```
 
 - [ ] **Step 2: 创建 .gitignore**

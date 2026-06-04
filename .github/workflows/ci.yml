@@ -1,0 +1,9 @@
+# Placeholder for Runbook Task 3
+# See: docs/superpowers/execution/2026-06-04-医美咨询小程序-runbook.md Task 3
+name: placeholder
+on: [push]
+jobs:
+  todo:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "TODO: Runbook Task 3"

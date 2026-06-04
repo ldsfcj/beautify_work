@@ -1,0 +1,8 @@
+{
+  "name": "dailyReconcile",
+  "version": "0.0.0",
+  "description": "Cloud function for Runbook Task 33",
+  "main": "index.js",
+  "_placeholder": true,
+  "_runbook_task": "33"
+}
