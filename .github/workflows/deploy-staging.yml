@@ -1,9 +1,18 @@
-# Placeholder for Runbook Task 3
-# See: docs/superpowers/execution/2026-06-04-医美咨询小程序-runbook.md Task 3
-name: placeholder
-on: [push]
+name: Deploy Staging
+on:
+  push:
+    branches: [main]
 jobs:
-  todo:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "TODO: Runbook Task 3"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npx miniprogram-ci upload \
+          --pp ./miniprogram/project.config.json \
+          --pkp ${{ secrets.MINI_PROGRAM_PRIVATE_KEY_PATH }} \
+          --appid ${{ secrets.MINI_PROGRAM_APPID }} \
+          --uv ${{ github.sha }}
+        env: { CI: true }
