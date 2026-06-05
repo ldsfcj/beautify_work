@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MockPaymentService } from './payment.service';
+import { WechatPaymentService } from './wechat/wechat-payment.service';
 import { PAYMENT_SERVICE } from './payment.types';
 
 @Module({
   providers: [
-    MockPaymentService,
-    { provide: PAYMENT_SERVICE, useExisting: MockPaymentService },
+    WechatPaymentService,
+    { provide: PAYMENT_SERVICE, useExisting: WechatPaymentService },
   ],
   exports: [PAYMENT_SERVICE],
 })
