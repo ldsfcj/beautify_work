@@ -1,8 +1,0 @@
-{
-  "name": "presets",
-  "version": "0.0.0",
-  "description": "Cloud function for Runbook Task 32",
-  "main": "index.js",
-  "_placeholder": true,
-  "_runbook_task": "32"
-}
