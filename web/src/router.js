@@ -18,8 +18,49 @@ const routes = [
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '工作台' },
       },
-      // Tasks 28-30 add: /generate, /history, /presets, /credits, /profile
+      {
+        path: 'generate',
+        name: 'Generate',
+        component: () => import('@/views/Placeholder.vue'),
+        meta: { title: 'AI 生成' },
+      },
+      {
+        path: 'history',
+        name: 'History',
+        component: () => import('@/views/Placeholder.vue'),
+        meta: { title: '生成历史' },
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/Profile.vue'),
+        meta: { title: '我的' },
+      },
+      {
+        path: 'packages',
+        name: 'Packages',
+        component: () => import('@/views/Packages.vue'),
+        meta: { title: '积分套餐' },
+      },
+      {
+        path: 'orders',
+        name: 'OrderList',
+        component: () => import('@/views/OrderList.vue'),
+        meta: { title: '我的订单' },
+      },
+      {
+        path: 'orders/:no',
+        name: 'OrderDetail',
+        component: () => import('@/views/OrderDetail.vue'),
+        meta: { title: '订单详情' },
+      },
     ],
+  },
+  {
+    path: '/order/create',
+    name: 'OrderCreate',
+    component: () => import('@/views/OrderCreate.vue'),
+    meta: { title: '确认订单' },
   },
   {
     path: '/:pathMatch(.*)*',
