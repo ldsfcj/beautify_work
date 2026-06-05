@@ -10,6 +10,8 @@ import { validateEnv } from './config/validation';
 import { AppController } from './app.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { RedisModule } from './redis/redis.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { RolesGuard } from './common/guards/roles.guard';
         migrationsRun: process.env.NODE_ENV === 'production',
       }),
     }),
+    RedisModule,
+    SmsModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
