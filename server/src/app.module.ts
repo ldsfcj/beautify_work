@@ -17,6 +17,9 @@ import { CryptoModule } from './crypto/crypto.module';
 import { UserModule } from './user/user.module';
 import { AgreementModule } from './agreement/agreement.module';
 import { CreditModule } from './credit/credit.module';
+import { CreditPackageModule } from './credit-package/credit-package.module';
+import { PaymentModule } from './payment/payment.module';
+import { OrderModule } from './order/order.module';
 
 @Module({
   imports: [
@@ -45,6 +48,9 @@ import { CreditModule } from './credit/credit.module';
     UserModule,
     AgreementModule,
     CreditModule,
+    CreditPackageModule,
+    PaymentModule,
+    OrderModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
