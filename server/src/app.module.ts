@@ -15,6 +15,7 @@ import { SmsModule } from './sms/sms.module';
 import { AuthModule } from './auth/auth.module';
 import { CryptoModule } from './crypto/crypto.module';
 import { UserModule } from './user/user.module';
+import { AgreementModule } from './agreement/agreement.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { UserModule } from './user/user.module';
     SmsModule,
     AuthModule,
     UserModule,
+    AgreementModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
