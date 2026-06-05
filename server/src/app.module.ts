@@ -14,6 +14,7 @@ import { RedisModule } from './redis/redis.module';
 import { SmsModule } from './sms/sms.module';
 import { AuthModule } from './auth/auth.module';
 import { CryptoModule } from './crypto/crypto.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CryptoModule } from './crypto/crypto.module';
     CryptoModule,
     SmsModule,
     AuthModule,
+    UserModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {

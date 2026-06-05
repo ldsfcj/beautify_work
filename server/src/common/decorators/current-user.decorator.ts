@@ -1,11 +1,16 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 /**
- * JWT payload shape attached to `req.user` by the (mock) JwtStrategy.
- * Production strategy (Task 10) populates `id` / `type` from the verified token.
+ * Shape attached to `req.user` after JwtStrategy.validate. The strategy
+ * (Task 10) renames the JWT `sub` claim to `id` for ergonomics in
+ * controllers, so `req.user.id` is the principal's UUID.
+ *
+ * `iat` / `exp` are preserved from the original token for revocation
+ * checks (JwtAuthGuard compares `iat * 1000` against the cancel
+ * timestamp stored in Redis).
  */
 export interface JwtPayload {
-  sub: string;
+  id: string;
   type: 'user' | 'admin';
   role?: 'admin' | 'super';
   iat?: number;
