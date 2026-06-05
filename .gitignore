@@ -5,6 +5,10 @@ node_modules/
 .superpowers/
 coverage/
 dist/
+server/dist/
+web/dist/
+admin/dist/
 .env
 .env.local
+.env.production
 cloudfunctions/*/node_modules/
