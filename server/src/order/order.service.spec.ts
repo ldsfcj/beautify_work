@@ -6,13 +6,13 @@ import { Order, OrderStatus, PaymentMethod } from '../entities/order.entity';
 import { CreditPackage } from '../entities/credit-package.entity';
 import { User } from '../entities/user.entity';
 import { OrderService } from './order.service';
-import { PAYMENT_SERVICE, PaymentService, PayUrlResult } from '../payment/payment.types';
+import { PAYMENT_ROUTER, PaymentRouter, PayUrlResult } from '../payment/payment.types';
 
 /**
  * OrderService unit tests. Order + package + user repos are stubbed
- * (these all hit the DB). The payment service is replaced with a
- * fake so we can verify the create() flow calls it with the right
- * order.
+ * (these all hit the DB). The payment router is replaced with a
+ * fake so we can verify the create() flow forwards both `method` and
+ * the saved order into the dispatcher.
  */
 describe('OrderService', () => {
   let service: OrderService;
@@ -24,7 +24,10 @@ describe('OrderService', () => {
   };
   let packages: { findOneBy: jest.Mock; find: jest.Mock };
   let users: { findOneByOrFail: jest.Mock };
-  let payment: { createPayUrl: jest.Mock };
+  let payment: {
+    createPayUrl: jest.Mock;
+    getService: jest.Mock;
+  };
 
   const PKG = {
     id: 'pkg-standard',
@@ -48,7 +51,7 @@ describe('OrderService', () => {
     };
     packages = { findOneBy: jest.fn(), find: jest.fn() };
     users = { findOneByOrFail: jest.fn() };
-    payment = { createPayUrl: jest.fn() };
+    payment = { createPayUrl: jest.fn(), getService: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -56,7 +59,7 @@ describe('OrderService', () => {
         { provide: getRepositoryToken(Order), useValue: orders },
         { provide: getRepositoryToken(CreditPackage), useValue: packages },
         { provide: getRepositoryToken(User), useValue: users },
-        { provide: PAYMENT_SERVICE, useValue: payment },
+        { provide: PAYMENT_ROUTER, useValue: payment },
       ],
     }).compile();
 
@@ -88,8 +91,9 @@ describe('OrderService', () => {
       );
       // Order saved.
       expect(orders.save).toHaveBeenCalled();
-      // Payment called with the saved order.
+      // Payment router called with method + the saved order.
       expect(payment.createPayUrl).toHaveBeenCalledWith(
+        PaymentMethod.WECHAT,
         expect.objectContaining({ orderNo: expect.stringMatching(/^M[\w-]{12}$/) }),
       );
       // Return shape.

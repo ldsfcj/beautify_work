@@ -10,7 +10,7 @@ import { Repository } from 'typeorm';
 import { Order, OrderStatus, PaymentMethod } from '../entities/order.entity';
 import { CreditPackage } from '../entities/credit-package.entity';
 import { User } from '../entities/user.entity';
-import { PAYMENT_SERVICE, PaymentService } from '../payment/payment.types';
+import { PAYMENT_ROUTER, PaymentRouter } from '../payment/payment.types';
 
 /** Pagination caps — prevents a client from asking for 10k orders. */
 const DEFAULT_PAGE_SIZE = 10;
@@ -29,7 +29,7 @@ export class OrderService {
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     @InjectRepository(CreditPackage) private readonly packages: Repository<CreditPackage>,
     @InjectRepository(User) private readonly users: Repository<User>,
-    @Inject(PAYMENT_SERVICE) private readonly payment: PaymentService,
+    @Inject(PAYMENT_ROUTER) private readonly payment: PaymentRouter,
   ) {}
 
   /**
@@ -73,7 +73,7 @@ export class OrderService {
       }),
     );
 
-    const pay = await this.payment.createPayUrl(order);
+    const pay = await this.payment.createPayUrl(method, order);
     return {
       order_no: order.orderNo,
       credits,

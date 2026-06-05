@@ -1,4 +1,4 @@
-import { Order } from '../entities/order.entity';
+import { Order, PaymentMethod } from '../entities/order.entity';
 
 /**
  * What a payment provider hands back when an order is created. The
@@ -12,15 +12,39 @@ export interface PayUrlResult {
 }
 
 /**
- * Abstraction over Wechat / Alipay / future providers. Task 15 ships
- * a dev-mock implementation; Task 16/17 wire the real SDKs. Order
- * service depends only on this interface, so swapping providers is
- * a single DI binding change.
+ * Abstraction over Wechat / Alipay / future providers. Task 16/17
+ * wire the real SDKs; Task 15's dev-mock was replaced when we moved
+ * to multiple-provider routing (see PaymentRouter). The order side
+ * depends on PaymentRouter, not on this interface directly.
  */
 export interface PaymentService {
   createPayUrl(order: Order): Promise<PayUrlResult>;
 }
 
-/** DI token — order.service injects through this so the concrete
- *  payment provider is swappable from the module layer. */
-export const PAYMENT_SERVICE = Symbol('PAYMENT_SERVICE');
+/**
+ * Method-aware dispatcher. The order service holds the user's chosen
+ * `PaymentMethod` and asks the router to forward the call to the
+ * correct provider. `getService` is exposed so the callback handler
+ * (Task 18) can route a `POST /api/payment/{wechat|alipay}/notify`
+ * payload back to the same provider that issued the order.
+ */
+export interface PaymentRouter {
+  createPayUrl(method: PaymentMethod, order: Order): Promise<PayUrlResult>;
+  getService(method: PaymentMethod): PaymentService;
+}
+
+/**
+ * DI token — order.service and (later) the notify controller inject
+ * through this. Concrete providers are bound in PaymentModule.
+ */
+export const PAYMENT_ROUTER = Symbol('PAYMENT_ROUTER');
+
+/**
+ * Per-provider injection tokens. `PaymentRouterService` takes two
+ * `PaymentService`-typed args; without distinct tokens NestJS can't
+ * tell which is Wechat and which is Alipay. These tokens are
+ * module-internal — only PaymentModule binds them.
+ */
+export const WECHAT_PAYMENT = Symbol('WECHAT_PAYMENT');
+export const ALIPAY_PAYMENT = Symbol('ALIPAY_PAYMENT');
+
