@@ -11,10 +11,11 @@
 - Task 14-15（积分事务 / 套餐订单）✅ DONE
 - Task 16（微信 H5 支付 mock 骨架）✅ DONE
 - Task 17（支付宝 H5 支付 + PaymentRouter）✅ DONE
-- Task 18-19（支付回调对账 / P2 验收）⏳ pending
+- Task 18（支付回调 + 对账 cron)✅ DONE
+- Task 19(P2 验收)⏳ pending
 - Task 20-38（P3-P6）⏳ pending
 
-> 进度：**17/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
+> 进度：**18/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
 
 ## 技术栈
 
