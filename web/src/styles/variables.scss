@@ -1,0 +1,14 @@
+/**
+ * Vant theme overrides. Nude-pink palette inspired by medical-aesthetic
+ * brand guidelines. Override the CSS variables that Vant exposes.
+ */
+:root {
+  --van-primary-color: #d4a5a0;
+  --van-background-2: #f5ebe7;
+  --van-text-color: #3d2e2a;
+  --van-text-color-2: #6e5b56;
+  --van-border-color: #e8d5cf;
+  --van-border-radius: 10px;
+  --van-button-border-radius: 10px;
+  --van-cell-border-radius: 10px;
+}
