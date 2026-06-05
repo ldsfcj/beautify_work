@@ -12,6 +12,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { RedisModule } from './redis/redis.module';
 import { SmsModule } from './sms/sms.module';
+import { AuthModule } from './auth/auth.module';
+import { CryptoModule } from './crypto/crypto.module';
 
 @Module({
   imports: [
@@ -34,7 +36,9 @@ import { SmsModule } from './sms/sms.module';
       }),
     }),
     RedisModule,
+    CryptoModule,
     SmsModule,
+    AuthModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
