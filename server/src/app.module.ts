@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TerminusModule } from '@nestjs/terminus';
 import { LoggerModule } from 'nestjs-pino';
@@ -7,6 +8,8 @@ import configuration from './config/configuration';
 import { dataSourceOptions } from './config/typeorm.config';
 import { validateEnv } from './config/validation';
 import { AppController } from './app.controller';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -41,5 +44,11 @@ import { AppController } from './app.controller';
     TerminusModule,
   ],
   controllers: [AppController],
+  providers: [
+    // Authentication is the default; @Public() opts out.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // RBAC: only fires on routes carrying @Roles(...).
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule {}
