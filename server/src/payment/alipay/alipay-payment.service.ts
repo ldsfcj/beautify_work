@@ -1,7 +1,13 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Order } from '../../entities/order.entity';
-import { PayUrlResult, PaymentService } from '../payment.types';
+import {
+  NotifyHeaders,
+  PayUrlResult,
+  PaymentNotifyData,
+  PaymentQueryResult,
+  PaymentService,
+} from '../payment.types';
 
 /**
  * Alipay H5 pay wrapper (手机网站支付 / alipay.trade.wap.pay).
@@ -92,5 +98,84 @@ export class AlipayPaymentService implements PaymentService {
       );
     }
     return v;
+  }
+
+  // ── Task 18 notify / reconcile surface ──────────────────────────────
+  //
+  // Mock mode (dev / test) covers the full notify shape so end-to-end
+  // flows and the reconcile cron can be exercised without real keys.
+  // Prod path is a lazy-load shim mirroring createPayUrl (Task 17) —
+  // the SDK calls are stubbed and will be wired when alipay-sdk lands
+  // in production.
+
+  /**
+   * Verify the Alipay notify signature. Dev/test accepts a sentinel
+   * header `x-mock-sign: ok`; prod delegates to alipay-sdk's
+   * `checkNotifySignV2` (deferred).
+   */
+  verifySign(_rawBody: string, headers: NotifyHeaders): boolean {
+    if (process.env.NODE_ENV !== 'production') {
+      return headers['x-mock-sign'] === 'ok';
+    }
+    // (deferred) Real prod path uses alipay-sdk:
+    //   const sdk = this.loadSdk();
+    //   return sdk.checkNotifySignV2(parsedParams);
+    throw new ServiceUnavailableException(
+      'Alipay verifySign not wired for production yet — install alipay-sdk and finish SDK integration first.',
+    );
+  }
+
+  /**
+   * Parse Alipay's form-urlencoded notify body and map field names /
+   * status enum into our normalised shape. Alipay's `trade_status`
+   * values (TRADE_SUCCESS / TRADE_FINISHED / TRADE_CLOSED / WAIT_BUYER_PAY)
+   * are collapsed into SUCCESS / CLOSED / FAIL.
+   */
+  async decodeNotify(rawBody: string): Promise<PaymentNotifyData> {
+    if (process.env.NODE_ENV !== 'production') {
+      const params = new URLSearchParams(rawBody);
+      const outTradeNo = params.get('out_trade_no');
+      if (!outTradeNo) {
+        throw new Error('decodeNotify: missing out_trade_no in body');
+      }
+      const tradeStatus = params.get('trade_status') ?? '';
+      return {
+        outTradeNo,
+        transactionId: params.get('trade_no') ?? '',
+        tradeState: this.mapTradeStatus(tradeStatus),
+      };
+    }
+    throw new ServiceUnavailableException(
+      'Alipay decodeNotify not wired for production yet.',
+    );
+  }
+
+  /**
+   * Active-poll Alipay for an order's current state. Dev/test returns
+   * a deterministic SUCCESS so the reconcile cron's happy path can be
+   * exercised; tests that need other states mock this method directly.
+   */
+  async queryOrder(orderNo: string): Promise<PaymentQueryResult> {
+    if (process.env.NODE_ENV !== 'production') {
+      return {
+        tradeState: 'SUCCESS',
+        transactionId: `MOCK_ALIPAY_TXN_${orderNo}`,
+      };
+    }
+    throw new ServiceUnavailableException(
+      'Alipay queryOrder not wired for production yet.',
+    );
+  }
+
+  /**
+   * Alipay → normalised tradeState. TRADE_FINISHED is also SUCCESS
+   * (post-refund-window settlement); anything we don't recognise as a
+   * terminal-success / terminal-closed maps to FAIL so the caller
+   * treats it as "do not credit yet."
+   */
+  private mapTradeStatus(s: string): PaymentNotifyData['tradeState'] {
+    if (s === 'TRADE_SUCCESS' || s === 'TRADE_FINISHED') return 'SUCCESS';
+    if (s === 'TRADE_CLOSED') return 'CLOSED';
+    return 'FAIL';
   }
 }

@@ -158,4 +158,98 @@ describe('AlipayPaymentService', () => {
       expect(AlipaySdkCtor).not.toHaveBeenCalled();
     });
   });
+
+  // ── Task 18 notify / reconcile surface ──────────────────────────────
+  //
+  // Alipay notify body is form-urlencoded (not XML) and the field names
+  // differ from Wechat:
+  //   out_trade_no  → outTradeNo
+  //   trade_no      → transactionId
+  //   trade_status  → tradeState  (TRADE_SUCCESS / TRADE_CLOSED / others → FAIL)
+  //
+  // Like Wechat, only mock mode is fully covered. Prod path delegates
+  // to the SDK and is wired when alipay-sdk lands in production.
+
+  describe('verifySign (mock)', () => {
+    function buildService(): AlipayPaymentService {
+      return new AlipayPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('returns true when the sentinel header x-mock-sign=ok is present', () => {
+      const svc = buildService();
+      expect(
+        svc.verifySign('out_trade_no=O1', { 'x-mock-sign': 'ok' }),
+      ).toBe(true);
+    });
+
+    it('returns false when the sentinel header is missing or wrong', () => {
+      const svc = buildService();
+      expect(svc.verifySign('out_trade_no=O1', {})).toBe(false);
+      expect(svc.verifySign('out_trade_no=O1', { 'x-mock-sign': 'bad' })).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('decodeNotify (mock)', () => {
+    function buildService(): AlipayPaymentService {
+      return new AlipayPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('parses form-urlencoded body and maps TRADE_SUCCESS to SUCCESS', async () => {
+      const svc = buildService();
+      const body =
+        'out_trade_no=O20260605001&trade_no=2026060522001&trade_status=TRADE_SUCCESS&sign=ZZZ';
+      await expect(svc.decodeNotify(body)).resolves.toEqual({
+        outTradeNo: 'O20260605001',
+        transactionId: '2026060522001',
+        tradeState: 'SUCCESS',
+      });
+    });
+
+    it('maps TRADE_CLOSED to CLOSED and unknown statuses to FAIL', async () => {
+      const svc = buildService();
+      await expect(
+        svc.decodeNotify(
+          'out_trade_no=O2&trade_no=TX2&trade_status=TRADE_CLOSED',
+        ),
+      ).resolves.toMatchObject({ tradeState: 'CLOSED' });
+
+      await expect(
+        svc.decodeNotify(
+          'out_trade_no=O3&trade_no=TX3&trade_status=WAIT_BUYER_PAY',
+        ),
+      ).resolves.toMatchObject({ tradeState: 'FAIL' });
+    });
+
+    it('throws when out_trade_no is missing from the body', async () => {
+      const svc = buildService();
+      await expect(svc.decodeNotify('trade_no=TX')).rejects.toThrow(
+        /out_trade_no/,
+      );
+    });
+
+    it('decodes URL-encoded values correctly', async () => {
+      const svc = buildService();
+      const body =
+        'out_trade_no=O%2F1&trade_no=TX%201&trade_status=TRADE_SUCCESS';
+      await expect(svc.decodeNotify(body)).resolves.toMatchObject({
+        outTradeNo: 'O/1',
+        transactionId: 'TX 1',
+      });
+    });
+  });
+
+  describe('queryOrder (mock)', () => {
+    function buildService(): AlipayPaymentService {
+      return new AlipayPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('returns SUCCESS + a deterministic mock trade_no', async () => {
+      const svc = buildService();
+      const r = await svc.queryOrder('O20260605001');
+      expect(r.tradeState).toBe('SUCCESS');
+      expect(r.transactionId).toBe('MOCK_ALIPAY_TXN_O20260605001');
+    });
+  });
 });

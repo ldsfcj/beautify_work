@@ -12,13 +12,68 @@ export interface PayUrlResult {
 }
 
 /**
+ * Decoded payment notification payload. Task 18 normalises the
+ * provider-specific notify body (Wechat XML / Alipay form) into this
+ * shape so the PaymentService callback handler stays provider-agnostic.
+ */
+export interface PaymentNotifyData {
+  outTradeNo: string;
+  transactionId: string;
+  tradeState: 'SUCCESS' | 'FAIL' | 'CLOSED';
+}
+
+/**
+ * Result of the active-poll "query order" API used by the daily
+ * reconcile cron (Task 18) — when a notify is missed or dropped we
+ * ask the provider directly. `PENDING` means the user has not yet
+ * paid; `CLOSED` is provider-side timeout/cancellation; `FAIL` is
+ * an explicit failure event.
+ */
+export interface PaymentQueryResult {
+  tradeState: 'SUCCESS' | 'PENDING' | 'CLOSED' | 'FAIL';
+  transactionId?: string;
+}
+
+/**
+ * Headers shape passed to verifySign — providers each pick different
+ * fields out of the HTTP request (Wechat uses `wechatpay-signature`,
+ * Alipay uses `sign` from the form body), so the interface just hands
+ * over the full headers map.
+ */
+export type NotifyHeaders = Record<string, string | string[] | undefined>;
+
+/**
  * Abstraction over Wechat / Alipay / future providers. Task 16/17
- * wire the real SDKs; Task 15's dev-mock was replaced when we moved
- * to multiple-provider routing (see PaymentRouter). The order side
- * depends on PaymentRouter, not on this interface directly.
+ * wire the create-pay path; Task 18 adds the callback / reconcile
+ * surface. The order side depends on PaymentRouter (not this interface
+ * directly) for createPayUrl; the notify controller resolves a
+ * provider via `router.getService(method)` and then calls the verify /
+ * decode / query methods.
  */
 export interface PaymentService {
   createPayUrl(order: Order): Promise<PayUrlResult>;
+
+  /**
+   * Verify the provider signature on a raw notify body. `true` means
+   * the payload is authentic and may be acted on. In dev/test the
+   * mock implementation accepts a sentinel header (`x-mock-sign: ok`)
+   * so end-to-end flows can be exercised without real keys.
+   */
+  verifySign(rawBody: string, headers: NotifyHeaders): boolean | Promise<boolean>;
+
+  /**
+   * Parse the raw notify body into the normalised shape. Callers must
+   * verify the signature first — this method does NOT re-check.
+   */
+  decodeNotify(rawBody: string): Promise<PaymentNotifyData>;
+
+  /**
+   * Active-poll the provider for an order's current state. Used by
+   * the daily reconcile cron when an order has been pending past the
+   * 30-minute window and we want to resolve it without waiting for
+   * a possibly-lost notify.
+   */
+  queryOrder(orderNo: string): Promise<PaymentQueryResult>;
 }
 
 /**

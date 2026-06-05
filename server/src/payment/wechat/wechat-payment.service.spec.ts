@@ -153,4 +153,76 @@ describe('WechatPaymentService', () => {
       expect(WxPayCtor).not.toHaveBeenCalled();
     });
   });
+
+  // ── Task 18 notify / reconcile surface ──────────────────────────────
+  //
+  // The 3 methods are exercised on the dev-mock path only — the prod
+  // SDK path is left as a thin lazy-load shim mirroring createPayUrl's
+  // pattern (Task 16). Real Wechat-signed payload tests are deferred
+  // until the SDK is actually installed in prod.
+
+  describe('verifySign (mock)', () => {
+    function buildService(): WechatPaymentService {
+      return new WechatPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('returns true when the sentinel header x-mock-sign=ok is present', () => {
+      const svc = buildService();
+      expect(svc.verifySign('<xml/>', { 'x-mock-sign': 'ok' })).toBe(true);
+    });
+
+    it('returns false when the sentinel header is missing or wrong', () => {
+      const svc = buildService();
+      expect(svc.verifySign('<xml/>', {})).toBe(false);
+      expect(svc.verifySign('<xml/>', { 'x-mock-sign': 'bad' })).toBe(false);
+    });
+  });
+
+  describe('decodeNotify (mock)', () => {
+    function buildService(): WechatPaymentService {
+      return new WechatPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('extracts out_trade_no / transaction_id / trade_state from minimal XML', async () => {
+      const svc = buildService();
+      const xml = `<xml>
+        <out_trade_no>O20260605001</out_trade_no>
+        <transaction_id>WX_TXN_42</transaction_id>
+        <trade_state>SUCCESS</trade_state>
+      </xml>`;
+      await expect(svc.decodeNotify(xml)).resolves.toEqual({
+        outTradeNo: 'O20260605001',
+        transactionId: 'WX_TXN_42',
+        tradeState: 'SUCCESS',
+      });
+    });
+
+    it('decodes a FAIL trade_state correctly', async () => {
+      const svc = buildService();
+      const xml = '<xml><out_trade_no>O2</out_trade_no><transaction_id>WX_2</transaction_id><trade_state>FAIL</trade_state></xml>';
+      await expect(svc.decodeNotify(xml)).resolves.toMatchObject({
+        tradeState: 'FAIL',
+      });
+    });
+
+    it('throws when out_trade_no is missing from the body', async () => {
+      const svc = buildService();
+      await expect(svc.decodeNotify('<xml></xml>')).rejects.toThrow(
+        /out_trade_no/,
+      );
+    });
+  });
+
+  describe('queryOrder (mock)', () => {
+    function buildService(): WechatPaymentService {
+      return new WechatPaymentService(buildConfig({}) as ConfigService);
+    }
+
+    it('returns SUCCESS + a deterministic mock transaction_id', async () => {
+      const svc = buildService();
+      const r = await svc.queryOrder('O20260605001');
+      expect(r.tradeState).toBe('SUCCESS');
+      expect(r.transactionId).toBe('MOCK_WX_TXN_O20260605001');
+    });
+  });
 });

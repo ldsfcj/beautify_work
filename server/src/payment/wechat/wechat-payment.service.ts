@@ -1,7 +1,13 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Order } from '../../entities/order.entity';
-import { PayUrlResult, PaymentService } from '../payment.types';
+import {
+  NotifyHeaders,
+  PayUrlResult,
+  PaymentNotifyData,
+  PaymentQueryResult,
+  PaymentService,
+} from '../payment.types';
 
 /**
  * Wechat H5 pay wrapper.
@@ -102,5 +108,83 @@ export class WechatPaymentService implements PaymentService {
       );
     }
     return v;
+  }
+
+  // ── Task 18 notify / reconcile surface ──────────────────────────────
+  //
+  // Mock mode (dev / test) provides full coverage so end-to-end flows
+  // and the reconcile cron can be exercised without real credentials.
+  // Prod mode is left as a lazy-load shim mirroring createPayUrl's
+  // pattern — the SDK calls are stubbed here and will be wired when
+  // wechatpay-node-v3 is actually installed in production.
+
+  /**
+   * Verify a Wechat notify signature. Dev/test accepts a sentinel
+   * header `x-mock-sign: ok` so curl-driven flows work; any other
+   * value (or missing) fails the check. Prod path delegates to the
+   * SDK's signature verifier (deferred).
+   */
+  verifySign(_rawBody: string, headers: NotifyHeaders): boolean {
+    if (process.env.NODE_ENV !== 'production') {
+      return headers['x-mock-sign'] === 'ok';
+    }
+    // (deferred) Real prod path uses wechatpay-node-v3:
+    //   const pay = this.loadSdk();
+    //   return pay.verifySign({ timestamp, nonce, body, signature });
+    // For now, refuse in prod until the SDK path is fully wired.
+    throw new ServiceUnavailableException(
+      'Wechat verifySign not wired for production yet — install wechatpay-node-v3 and finish SDK integration first.',
+    );
+  }
+
+  /**
+   * Parse the Wechat notify body. Dev/test extracts the three fields
+   * from a minimal XML envelope using regex (no XML parser dep). Prod
+   * path uses the SDK's `decipher_gcm` decoder (deferred).
+   */
+  async decodeNotify(rawBody: string): Promise<PaymentNotifyData> {
+    if (process.env.NODE_ENV !== 'production') {
+      const outTradeNo = this.pickXmlField(rawBody, 'out_trade_no');
+      if (!outTradeNo) {
+        throw new Error('decodeNotify: missing out_trade_no in body');
+      }
+      const transactionId = this.pickXmlField(rawBody, 'transaction_id') ?? '';
+      const tradeState =
+        (this.pickXmlField(rawBody, 'trade_state') ?? 'FAIL') as
+          PaymentNotifyData['tradeState'];
+      return { outTradeNo, transactionId, tradeState };
+    }
+    throw new ServiceUnavailableException(
+      'Wechat decodeNotify not wired for production yet.',
+    );
+  }
+
+  /**
+   * Active-poll Wechat for an order's current state. Dev/test returns
+   * a deterministic SUCCESS so the reconcile cron's happy path can be
+   * exercised; tests that need other states mock this method directly.
+   */
+  async queryOrder(orderNo: string): Promise<PaymentQueryResult> {
+    if (process.env.NODE_ENV !== 'production') {
+      return {
+        tradeState: 'SUCCESS',
+        transactionId: `MOCK_WX_TXN_${orderNo}`,
+      };
+    }
+    throw new ServiceUnavailableException(
+      'Wechat queryOrder not wired for production yet.',
+    );
+  }
+
+  private pickXmlField(xml: string, name: string): string | null {
+    // Minimal extractor — accepts both `<name>val</name>` and
+    // CDATA-wrapped values; trims whitespace.
+    const re = new RegExp(
+      `<${name}>\\s*(?:<!\\[CDATA\\[(.*?)\\]\\]>|([^<]+?))\\s*</${name}>`,
+      's',
+    );
+    const m = xml.match(re);
+    if (!m) return null;
+    return (m[1] ?? m[2] ?? '').trim();
   }
 }

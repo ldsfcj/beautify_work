@@ -23,6 +23,15 @@ describe('PaymentRouterService', () => {
         h5_url: `mock://${label}/${o.orderNo}`,
         expire_at: new Date('2030-01-01T00:00:00Z'),
       })),
+      // Task 18 surface — router spec only checks dispatch identity,
+      // so these stubs never need to return anything meaningful.
+      verifySign: jest.fn(() => true),
+      decodeNotify: jest.fn(async () => ({
+        outTradeNo: 'unused',
+        transactionId: 'unused',
+        tradeState: 'SUCCESS' as const,
+      })),
+      queryOrder: jest.fn(async () => ({ tradeState: 'SUCCESS' as const })),
     };
     return svc;
   }
