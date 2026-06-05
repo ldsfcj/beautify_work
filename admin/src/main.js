@@ -1,5 +1,14 @@
-// Placeholder for Runbook Task 30 — Vue 入口
-// See: docs/superpowers/execution/2026-06-04-医美咨询小程序-runbook.md Task 30
-//
-// TODO: replace this stub with the implementation from Runbook Task 30
-module.exports = { _todo: 'Runbook Task 30' };
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
+import App from './App.vue';
+import router from './router';
+import './styles/global.scss';
+
+const pinia = createPinia();
+pinia.use(piniaPluginPersistedstate);
+
+const app = createApp(App);
+app.use(pinia);
+app.use(router);
+app.mount('#app');

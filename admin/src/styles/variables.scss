@@ -1,0 +1,16 @@
+/**
+ * Element Plus theme overrides. Nude-pink palette to match the user-side
+ * web build (web/src/styles/variables.scss). The --el-color-primary CSS
+ * variable is what EP's design tokens map back to.
+ */
+:root {
+  --el-color-primary: #d4a5a0;
+  --el-color-primary-light-3: #e0bcb8;
+  --el-color-primary-light-5: #e8d0cd;
+  --el-color-primary-light-7: #f0e1de;
+  --el-color-primary-light-8: #f5ebe7;
+  --el-color-primary-light-9: #fbf5f3;
+  --el-color-primary-dark-2: #b88b86;
+  --el-border-radius-base: 6px;
+  --el-font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
