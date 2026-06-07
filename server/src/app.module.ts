@@ -21,6 +21,7 @@ import { CreditPackageModule } from './credit-package/credit-package.module';
 import { PaymentModule } from './payment/payment.module';
 import { OrderModule } from './order/order.module';
 import { CronModule } from './cron/cron.module';
+import { PresetModule } from './preset/preset.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { CronModule } from './cron/cron.module';
     PaymentModule,
     OrderModule,
     CronModule,
+    PresetModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
