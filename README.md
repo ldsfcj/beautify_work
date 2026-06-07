@@ -5,17 +5,17 @@
 
 ## 当前状态
 
-✅ **P2 推进中**（2026-06-05）
+✅ **P3 预备完成**（2026-06-07）
 
 - Task 1-13（P0 + P1）✅ DONE
 - Task 14-15（积分事务 / 套餐订单）✅ DONE
 - Task 16（微信 H5 支付 mock 骨架）✅ DONE
 - Task 17（支付宝 H5 支付 + PaymentRouter）✅ DONE
-- Task 18（支付回调 + 对账 cron)✅ DONE
-- Task 19(P2 验收)⏳ pending
+- Task 18（支付回调 + 对账 cron）✅ DONE
+- Task 19（P2 验收）✅ DONE — 端到端冒烟 + admin 手动触发 cron 端点
 - Task 20-38（P3-P6）⏳ pending
 
-> 进度：**18/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
+> 进度：**19/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
 
 ## 技术栈
 

@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from '../entities/order.entity';
 import { PaymentModule } from '../payment/payment.module';
+import { CronController } from './cron.controller';
 import { DailyReconcileCron } from './daily-reconcile.cron';
 
 /**
@@ -16,6 +17,10 @@ import { DailyReconcileCron } from './daily-reconcile.cron';
  *   - PaymentModule for the PAYMENT_ROUTER token and PaymentService
  *     (the cron settles SUCCESS polls through
  *     `creditOrderFromReconcile`).
+ *
+ * `CronController` exposes a manual trigger at
+ * `POST /api/admin/cron/run/dailyReconcile` for incident response
+ * and Task 19 verification.
  */
 @Module({
   imports: [
@@ -23,6 +28,7 @@ import { DailyReconcileCron } from './daily-reconcile.cron';
     TypeOrmModule.forFeature([Order]),
     PaymentModule,
   ],
+  controllers: [CronController],
   providers: [DailyReconcileCron],
 })
 export class CronModule {}
