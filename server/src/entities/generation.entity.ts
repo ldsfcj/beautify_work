@@ -13,6 +13,7 @@ export enum GenerationStatus {
   PROCESSING = 'processing',
   SUCCESS = 'success',
   FAILED = 'failed',
+  DELETED = 'deleted',
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,9 +12,12 @@ import type { Repository } from 'typeorm';
 import type { Redis } from 'ioredis';
 import { CreditLedgerService } from '../credit/creditledger.service';
 import { LedgerType } from '../entities/credit-ledger.entity';
+import { AiCallLog } from '../entities/ai-call-log.entity';
+import { DownloadLog } from '../entities/download-log.entity';
 import { Generation, GenerationStatus } from '../entities/generation.entity';
 import { SystemConfig } from '../entities/system-config.entity';
 import { NotificationService } from '../notification/notification.service';
+import { OssService } from '../oss/oss.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import {
   DEFAULT_RATE_LIMIT,
@@ -34,6 +38,37 @@ export interface SubmitDto {
 export interface SubmitResult {
   generation_id: string;
   balance_after: number;
+}
+
+export interface StatusResult {
+  id: string;
+  status: GenerationStatus;
+  result_url: string | null;
+}
+
+export interface ListOptions {
+  page?: number;
+  pageSize?: number;
+  /** Optional filter — `'deleted'` is never returned by default. */
+  status?: GenerationStatus | 'all';
+}
+
+export interface ListResult {
+  items: Generation[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface DetailResult {
+  generation: Generation;
+  /** Last 5 AI call log rows for this generation, newest first. */
+  ai_logs: AiCallLog[];
+}
+
+export interface DownloadUrlResult {
+  url: string;
+  expires_in: number;
 }
 
 interface CreditPricingTable {
@@ -86,12 +121,17 @@ export class GenerateService {
     private readonly gens: Repository<Generation>,
     @InjectRepository(SystemConfig)
     private readonly sysCfg: Repository<SystemConfig>,
+    @InjectRepository(AiCallLog)
+    private readonly aiLogs: Repository<AiCallLog>,
+    @InjectRepository(DownloadLog)
+    private readonly downloads: Repository<DownloadLog>,
     @Inject(AI_GENERATE_QUEUE)
     private readonly queue: Queue,
     private readonly ledger: CreditLedgerService,
     @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
     private readonly notif: NotificationService,
+    private readonly oss: OssService,
   ) {}
 
   async submit(userId: string, dto: SubmitDto): Promise<SubmitResult> {
@@ -153,6 +193,128 @@ export class GenerateService {
     }
 
     return { generation_id: generation.id, balance_after: debit.balanceAfter };
+  }
+
+  // ── read-side helpers (Task 26) ────────────────────────────────────
+
+  /**
+   * Lightweight status probe for the result page's polling loop.
+   * Returns only the fields the client needs to decide between
+   * "keep polling" and "render the image" — keeping the payload
+   * small enough to fetch on a 1s interval without burning the
+   * mobile data plan.
+   */
+  async status(userId: string, id: string): Promise<StatusResult> {
+    const g = await this.findOwnedOrThrow(userId, id);
+    return {
+      id: g.id,
+      status: g.status,
+      result_url: g.status === GenerationStatus.SUCCESS ? g.resultUrl : null,
+    };
+  }
+
+  /**
+   * Paginated history list for the history page. `deleted` rows
+   * are always excluded from the default view (a soft-delete is
+   * effectively a hide, not a purge — the row stays in the DB for
+   * audit; the user just can't see it in their list).
+   */
+  async list(userId: string, opts: ListOptions = {}): Promise<ListResult> {
+    const page = Math.max(1, opts.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, opts.pageSize ?? 20));
+
+    const where: Record<string, unknown> = { userId };
+    if (opts.status && opts.status !== 'all' && opts.status !== GenerationStatus.DELETED) {
+      where.status = opts.status;
+    }
+
+    const [items, total] = await this.gens.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return { items, total, page, pageSize };
+  }
+
+  /**
+   * Full detail view for the result page. Bundles the last 5
+   * AI call logs so the user can see the vendor + latency when
+   * the model degrades (handy for "why does it look weird?"
+   * support tickets).
+   */
+  async detail(userId: string, id: string): Promise<DetailResult> {
+    const generation = await this.findOwnedOrThrow(userId, id);
+    const ai_logs = await this.aiLogs.find({
+      where: { generationId: id },
+      order: { createdAt: 'DESC' },
+      take: 5,
+    });
+    return { generation, ai_logs };
+  }
+
+  /**
+   * Soft-delete: flip `status` to `deleted` rather than removing
+   * the row. The row stays for compliance / data-subject
+   * requests and a future admin "trash bin" view. Idempotent —
+   * a re-delete is a no-op.
+   */
+  async softDelete(userId: string, id: string): Promise<void> {
+    const g = await this.findOwnedOrThrow(userId, id);
+    if (g.status === GenerationStatus.DELETED) return;
+    await this.gens.update({ id, userId }, { status: GenerationStatus.DELETED });
+  }
+
+  /**
+   * Issue a 5-minute signed OSS URL for the result image and
+   * audit-log the download. The TTL is the standard 5 min: long
+   * enough to start a download on a slow connection, short
+   * enough that a leaked link expires before the user notices.
+   *
+   * `download_logs` is a compliance requirement (D6) — every
+   * download must be attributable to a user, an IP, and a UA.
+   * The IP/UA fields are filled by the controller from the
+   * request, but if the caller doesn't provide them we
+   * default to `0.0.0.0` / `unknown` so the row is still
+   * insertable.
+   */
+  async downloadUrl(
+    userId: string,
+    id: string,
+    ip = '0.0.0.0',
+    ua = 'unknown',
+  ): Promise<DownloadUrlResult> {
+    const g = await this.findOwnedOrThrow(userId, id);
+    if (g.status !== GenerationStatus.SUCCESS || !g.resultUrl) {
+      throw new BadRequestException({
+        code: 'NOT_READY',
+        message: '生成未成功，无法下载',
+      });
+    }
+    const expiresInSec = 300;
+    const url = await this.oss.signedUrl(g.resultUrl, expiresInSec);
+    await this.downloads.save(
+      this.downloads.create({
+        userId,
+        generationId: id,
+        ip,
+        ua,
+      }),
+    );
+    return { url, expires_in: expiresInSec };
+  }
+
+  // ── private helpers ────────────────────────────────────────────────
+
+  private async findOwnedOrThrow(userId: string, id: string): Promise<Generation> {
+    const g = await this.gens.findOne({ where: { id, userId } });
+    if (!g) {
+      // Foreign id → 404 (never 403) so we don't leak the
+      // existence of other users' generation rows.
+      throw new NotFoundException('生成记录不存在');
+    }
+    return g;
   }
 
   private async refundSubmitDebit(

@@ -7,6 +7,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { Generation } from '../entities/generation.entity';
 import { SystemConfig } from '../entities/system-config.entity';
 import { AiCallLog } from '../entities/ai-call-log.entity';
+import { DownloadLog } from '../entities/download-log.entity';
 import { GenerateController } from './generate.controller';
 import {
   AI_GENERATE_QUEUE,
@@ -33,7 +34,7 @@ import { WatermarkService } from '../ai/image-watermark';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Generation, SystemConfig, AiCallLog]),
+    TypeOrmModule.forFeature([Generation, SystemConfig, AiCallLog, DownloadLog]),
     BullModule.registerQueue({ name: AI_GENERATE_QUEUE_NAME }),
     CreditModule,
     AiModule,

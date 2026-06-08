@@ -4,10 +4,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import type { Repository } from 'typeorm';
 import { CreditLedgerService } from '../credit/creditledger.service';
+import { AiCallLog } from '../entities/ai-call-log.entity';
+import { DownloadLog } from '../entities/download-log.entity';
 import { LedgerType } from '../entities/credit-ledger.entity';
 import { Generation, GenerationStatus } from '../entities/generation.entity';
 import { SystemConfig } from '../entities/system-config.entity';
 import { NotificationService } from '../notification/notification.service';
+import { OssService } from '../oss/oss.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import type { Redis } from 'ioredis';
 import { GenerateService } from './generate.service';
@@ -56,16 +59,24 @@ describe('GenerateService', () => {
     // permissive stub so the submit path doesn't blow up.)
     redis = { eval: jest.fn().mockResolvedValue(1) } as any;
     notif = { create: jest.fn() } as any;
+    // The submit path doesn't touch these, but the constructor
+    // requires them; null is fine.
+    const aiLogs = { find: jest.fn() } as any;
+    const downloads = { create: jest.fn(), save: jest.fn() } as any;
+    const oss = { signedUrl: jest.fn() } as any;
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         GenerateService,
         { provide: getRepositoryToken(Generation), useValue: gens },
         { provide: getRepositoryToken(SystemConfig), useValue: sysCfg },
+        { provide: getRepositoryToken(AiCallLog), useValue: aiLogs },
+        { provide: getRepositoryToken(DownloadLog), useValue: downloads },
         { provide: 'BULL_QUEUE_AI_GENERATE', useValue: queue },
         { provide: CreditLedgerService, useValue: ledger },
         { provide: REDIS_CLIENT, useValue: redis },
         { provide: NotificationService, useValue: notif },
+        { provide: OssService, useValue: oss },
       ],
     }).compile();
 
