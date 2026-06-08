@@ -5,15 +5,16 @@
 
 ## 当前状态
 
-✅ **P3 主体完成**（2026-06-08）
+✅ **P3 收尾完成**（2026-06-08）
 
 - Task 1-19（P0 + P1 + P2）✅ DONE
 - Task 20-23（预设项目 / AI 提示词 / 适配器 / AIService 入口）✅ DONE
 - Task 24（Redis 限流 + 站内通知）✅ DONE — `2155429`
 - Task 25（Generate submit + Worker + 水印 + OSS + 通知）✅ DONE — `d425867`
-- Task 26-38（辅助接口 → P4-P6）⏳ pending
+- Task 26（Generate 5 辅助接口）✅ DONE — `712ab54`
+- Task 27-38（P3 验收 → P4-P6）⏳ pending
 
-> 进度：**25/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
+> 进度：**26/38 完成**。详见 [执行 Runbook](./docs/superpowers/execution/2026-06-04-医美咨询H5-runbook.md)。
 
 ## 技术栈
 
