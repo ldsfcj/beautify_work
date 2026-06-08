@@ -9,7 +9,7 @@ import { NotificationService } from '../notification/notification.service';
 import { OssService } from '../oss/oss.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { CreditLedgerService } from '../credit/creditledger.service';
-import type { Repository } from 'typeorm';
+import { Not, type Repository } from 'typeorm';
 import type { Redis } from 'ioredis';
 import type { Queue } from 'bullmq';
 import { AI_GENERATE_QUEUE, GenerateService } from './generate.service';
@@ -141,7 +141,10 @@ describe('GenerateService helpers (Task 26)', () => {
       expect(r.pageSize).toBe(20);
       expect(gens.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: USER_ID },
+          where: {
+            userId: USER_ID,
+            status: Not(GenerationStatus.DELETED),
+          },
           order: { createdAt: 'DESC' },
           skip: 0,
           take: 20,
@@ -164,7 +167,10 @@ describe('GenerateService helpers (Task 26)', () => {
       await service.list(USER_ID, { page: 1, pageSize: 20 });
       expect(gens.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.not.objectContaining({ status: 'deleted' }),
+          where: expect.objectContaining({
+            userId: USER_ID,
+            status: Not(GenerationStatus.DELETED),
+          }),
         }),
       );
     });

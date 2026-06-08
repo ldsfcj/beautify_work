@@ -16,6 +16,7 @@ import { SmsCode } from '../entities/sms-code.entity';
 import { Notification } from '../entities/notification.entity';
 import { InitSchema1700000000000 } from '../migrations/1700000000000-InitSchema';
 import { SeedPresetsAndConfigs1700000000001 } from '../migrations/1700000000001-SeedPresetsAndConfigs';
+import { AddDeletedToGenerationStatus1700000000002 } from '../migrations/1700000000002-AddDeletedToGenerationStatus';
 
 /**
  * Shared DataSource options consumed by:
@@ -43,7 +44,11 @@ export const dataSourceOptions: DataSourceOptions = {
     SmsCode,
     Notification,
   ],
-  migrations: [InitSchema1700000000000, SeedPresetsAndConfigs1700000000001],
+  migrations: [
+    InitSchema1700000000000,
+    SeedPresetsAndConfigs1700000000001,
+    AddDeletedToGenerationStatus1700000000002,
+  ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
   logging: process.env.NODE_ENV === 'development' ? ['error', 'warn', 'migration'] : ['error'],

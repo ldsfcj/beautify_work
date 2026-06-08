@@ -8,7 +8,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
-import type { Repository } from 'typeorm';
+import { Not, type Repository } from 'typeorm';
 import type { Redis } from 'ioredis';
 import { CreditLedgerService } from '../credit/creditledger.service';
 import { LedgerType } from '../entities/credit-ledger.entity';
@@ -226,6 +226,11 @@ export class GenerateService {
     const where: Record<string, unknown> = { userId };
     if (opts.status && opts.status !== 'all' && opts.status !== GenerationStatus.DELETED) {
       where.status = opts.status;
+    } else {
+      // Default: hide soft-deleted rows so they don't pollute the
+      // history list. Callers can still pass status='deleted' to
+      // view the trash (not exposed in the current API surface).
+      where.status = Not(GenerationStatus.DELETED);
     }
 
     const [items, total] = await this.gens.findAndCount({
