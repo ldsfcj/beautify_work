@@ -24,6 +24,10 @@ import { CronModule } from './cron/cron.module';
 import { PresetModule } from './preset/preset.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationModule } from './notification/notification.module';
+import { GenerateModule } from './generate/generate.module';
+import { OssModule } from './oss/oss.module';
+import { BullModule } from '@nestjs/bullmq';
+import { ConfigModule as CfgMod } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -59,6 +63,18 @@ import { NotificationModule } from './notification/notification.module';
     PresetModule,
     AiModule,
     NotificationModule,
+    OssModule,
+    BullModule.forRootAsync({
+      imports: [CfgMod],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.get<string>('redis.url'),
+          maxRetriesPerRequest: null,
+        },
+      }),
+    }),
+    GenerateModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
