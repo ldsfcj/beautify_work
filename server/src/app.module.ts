@@ -23,6 +23,7 @@ import { OrderModule } from './order/order.module';
 import { CronModule } from './cron/cron.module';
 import { PresetModule } from './preset/preset.module';
 import { AiModule } from './ai/ai.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AiModule } from './ai/ai.module';
     CronModule,
     PresetModule,
     AiModule,
+    NotificationModule,
     LoggerModule.forRootAsync({
       useFactory: () => ({
         pinoHttp: {
