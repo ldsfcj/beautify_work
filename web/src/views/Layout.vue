@@ -50,12 +50,13 @@ const router = useRouter();
 const user = useUserStore();
 const notif = useNotificationStore();
 
-// Pages that are the "root" of each tab — no back arrow needed,
-// and the bottom tabbar is visible there.
+// Bottom tabbar is shown on the 4 tab routes. Back arrow is hidden
+// only on the true home (Dashboard) — every other page, including
+// the other tab routes, gets a back arrow that returns to Dashboard.
 const HOME_NAMES = new Set(['Dashboard', 'Generate', 'History', 'Profile']);
 
 const isHomeRoute = computed(() => HOME_NAMES.has(route.name));
-const showBack = computed(() => !isHomeRoute.value);
+const showBack = computed(() => route.name !== 'Dashboard');
 const showTabbar = computed(() => !route.meta?.hideTabbar && isHomeRoute.value);
 
 const pageTitle = computed(() => route.meta?.title || '医美咨询');
@@ -63,7 +64,14 @@ const pageTitle = computed(() => route.meta?.title || '医美咨询');
 let pollTimer = null;
 
 const onBack = () => {
-  router.back();
+  // Prefer real browser history; if there's none (e.g. user opened
+  // the link directly), fall back to Dashboard so we never leave
+  // the app via the back button.
+  if (window.history.state?.back) {
+    router.back();
+  } else {
+    router.replace('/');
+  }
 };
 
 const goNotifications = () => {
