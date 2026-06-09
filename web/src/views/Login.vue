@@ -1,67 +1,69 @@
 <template>
   <div class="login-page">
-    <div class="hero">
-      <h1>医美咨询 AI 预览</h1>
-      <p class="subtitle">为咨询师提供 AI 整形预览生成工具</p>
+    <div class="login-content">
+      <div class="hero">
+        <h1>医美咨询 AI 预览</h1>
+        <p class="subtitle">为咨询师提供 AI 整形预览生成工具</p>
+      </div>
+
+      <van-form @submit="onSubmit" class="form">
+        <van-cell-group inset>
+          <van-field
+            v-model="phone"
+            type="tel"
+            name="phone"
+            label="手机号"
+            placeholder="请输入 11 位手机号"
+            :rules="[
+              { required: true, message: '请输入手机号' },
+              { pattern: /^1[3-9]\d{9}$/, message: '格式不正确' },
+            ]"
+            maxlength="11"
+          />
+          <van-field
+            v-model="code"
+            type="digit"
+            name="code"
+            label="验证码"
+            placeholder="6 位数字"
+            maxlength="6"
+          >
+            <template #button>
+              <van-button
+                size="small"
+                type="primary"
+                :disabled="!canSend"
+                :loading="sending"
+                @click.prevent="onSend"
+              >
+                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+              </van-button>
+            </template>
+          </van-field>
+        </van-cell-group>
+
+        <div class="agreement">
+          <van-checkbox v-model="agreed" shape="square">
+            我已阅读并同意
+          </van-checkbox>
+          <a class="link" @click="openAgreement('user')">《用户服务协议》</a>
+          <span>与</span>
+          <a class="link" @click="openAgreement('privacy')">《隐私政策》</a>
+        </div>
+
+        <div class="submit">
+          <van-button
+            block
+            type="primary"
+            native-type="submit"
+            :loading="submitting"
+            :disabled="!canSubmit"
+          >
+            登录
+          </van-button>
+        </div>
+      </van-form>
     </div>
-
-    <van-form @submit="onSubmit" class="form">
-      <van-cell-group inset>
-        <van-field
-          v-model="phone"
-          type="tel"
-          name="phone"
-          label="手机号"
-          placeholder="请输入 11 位手机号"
-          :rules="[
-            { required: true, message: '请输入手机号' },
-            { pattern: /^1[3-9]\d{9}$/, message: '格式不正确' },
-          ]"
-          maxlength="11"
-        />
-        <van-field
-          v-model="code"
-          type="digit"
-          name="code"
-          label="验证码"
-          placeholder="6 位数字"
-          maxlength="6"
-        >
-          <template #button>
-            <van-button
-              size="small"
-              type="primary"
-              :disabled="!canSend"
-              :loading="sending"
-              @click.prevent="onSend"
-            >
-              {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
-            </van-button>
-          </template>
-        </van-field>
-      </van-cell-group>
-
-      <div class="agreement">
-        <van-checkbox v-model="agreed" shape="square">
-          我已阅读并同意
-        </van-checkbox>
-        <a class="link" @click="openAgreement('user')">《用户服务协议》</a>
-        <span>与</span>
-        <a class="link" @click="openAgreement('privacy')">《隐私政策》</a>
-      </div>
-
-      <div class="submit">
-        <van-button
-          block
-          type="primary"
-          native-type="submit"
-          :loading="submitting"
-          :disabled="!canSubmit"
-        >
-          登录
-        </van-button>
-      </div>
-    </van-form>
   </div>
 </template>
 
@@ -158,12 +160,22 @@ const openAgreement = (type) => {
 
 <style scoped>
 /* Login page — warm nude-pink brand consistency.
- * The hero section uses a subtle gradient to echo the dashboard hero
- * without overwhelming the form. */
+ * Content is vertically centred so the form sits in the middle of
+ * the viewport on any device (no awkward top-anchored block on
+ * tablet/desktop). On narrow phones the min-height + flex keeps it
+ * scrollable when the keyboard pops up. */
 .login-page {
   min-height: 100vh;
-  padding: 80px 16px 24px;
+  padding: 24px 16px;
   background: var(--ma-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.login-content {
+  width: 100%;
+  max-width: 420px;
 }
 .hero {
   text-align: center;
@@ -181,8 +193,7 @@ const openAgreement = (type) => {
   margin: 0;
 }
 .form {
-  margin: 0 auto;
-  max-width: 480px;
+  width: 100%;
 }
 .agreement {
   margin: 16px 24px 0;
