@@ -19,7 +19,31 @@ const routes = [
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '工作台', icon: 'odometer' },
       },
-      // Tasks 32-35 add: /orders /users /packages /presets /configs /ai-logs /audit /refunds
+      {
+        path: 'orders',
+        name: 'Orders',
+        component: () => import('@/views/Orders.vue'),
+        meta: { title: '订单管理', icon: 'list' },
+      },
+      {
+        path: 'users',
+        name: 'Users',
+        component: () => import('@/views/Users.vue'),
+        meta: { title: '用户管理', icon: 'user' },
+      },
+      {
+        path: 'presets',
+        name: 'Presets',
+        component: () => import('@/views/Presets.vue'),
+        meta: { title: '预设项目', icon: 'collection' },
+      },
+      {
+        path: 'packages',
+        name: 'Packages',
+        component: () => import('@/views/Packages.vue'),
+        meta: { title: '积分套餐', icon: 'goods' },
+      },
+      // Tasks 34 adds: /configs /ai-logs /audit /refunds
     ],
   },
   {

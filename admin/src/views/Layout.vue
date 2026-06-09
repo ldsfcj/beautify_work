@@ -13,11 +13,14 @@
         active-text-color="#f5ebe7"
         router
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <template #title>工作台</template>
+        <el-menu-item
+          v-for="item in menuItems"
+          :key="item.path"
+          :index="item.path"
+        >
+          <el-icon><component :is="item.icon" /></el-icon>
+          <template #title>{{ item.title }}</template>
         </el-menu-item>
-        <!-- Tasks 32-35: orders / users / packages / presets / configs / ai-logs / audit / refunds -->
       </el-menu>
     </el-aside>
 
@@ -42,6 +45,15 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import {
+  Odometer,
+  List,
+  User,
+  Collection,
+  Goods,
+  Fold,
+  Expand,
+} from '@element-plus/icons-vue';
 import { useAdminStore } from '@/stores/admin';
 
 const route = useRoute();
@@ -50,6 +62,35 @@ const admin = useAdminStore();
 const collapsed = ref(false);
 
 const activeMenu = computed(() => route.path);
+
+/**
+ * Build the sidebar from the router's child routes. Each child carries
+ * a `meta.icon` (Element Plus icon name) so adding a new module in
+ * router.js is the only place to touch — this layout auto-renders it.
+ *
+ * Icon map is a closed set; new modules add their Element Plus icon
+ * here. We use the actual components (not strings) so the Vite build
+ * tree-shakes correctly.
+ */
+const ICON_MAP = {
+  odometer: Odometer,
+  list: List,
+  user: User,
+  collection: Collection,
+  goods: Goods,
+};
+
+const menuItems = computed(() => {
+  const root = router.options.routes.find((r) => r.path === '/');
+  if (!root?.children) return [];
+  return root.children
+    .filter((c) => c.meta?.title)
+    .map((c) => ({
+      path: `/${c.path}`,
+      title: c.meta.title,
+      icon: ICON_MAP[c.meta.icon] || Odometer,
+    }));
+});
 
 const onLogout = async () => {
   await admin.logout();
