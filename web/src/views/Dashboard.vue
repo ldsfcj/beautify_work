@@ -8,7 +8,7 @@
       <div class="credits-card">
         <div class="credits-label">积分余额</div>
         <div class="credits-value">{{ user.credits }}</div>
-        <van-button size="mini" type="primary" @click="$router.push('/packages')">
+        <van-button size="mini" type="primary" @click="$router.push('/recharge')">
           充值
         </van-button>
       </div>
@@ -58,7 +58,7 @@
       </div>
     </section>
 
-    <div class="banner" @click="$router.push('/packages')">
+    <div class="banner" @click="$router.push('/recharge')">
       <van-icon name="gem-o" size="20" color="#fff" />
       <span>新人首充 8 折 — 仅限本周</span>
       <van-icon name="arrow" color="#fff" />

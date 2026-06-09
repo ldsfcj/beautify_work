@@ -24,7 +24,7 @@
       <div class="row">
         <span class="label">积分</span>
         <span class="value credits">{{ user.credits }}</span>
-        <van-button size="mini" type="primary" plain @click="$router.push('/packages')">
+        <van-button size="mini" type="primary" plain @click="$router.push('/recharge')">
           充值
         </van-button>
       </div>

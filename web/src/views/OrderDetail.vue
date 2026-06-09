@@ -4,7 +4,18 @@
 
     <div v-else-if="order">
       <van-cell-group inset title="订单信息">
-        <van-cell title="订单号" :value="order.orderNo" />
+        <van-cell title="订单号">
+          <template #value>
+            <div class="mono-with-copy">
+              <span class="mono">{{ order.orderNo }}</span>
+              <van-icon
+                name="orders-o"
+                class="copy-icon"
+                @click="copy(order.orderNo, '订单号已复制')"
+              />
+            </div>
+          </template>
+        </van-cell>
         <van-cell title="状态">
           <template #value>
             <van-tag :type="statusType(order.status)">
@@ -17,8 +28,18 @@
         <van-cell
           v-if="order.txnId"
           title="支付流水"
-          :value="order.txnId"
-        />
+        >
+          <template #value>
+            <div class="mono-with-copy">
+              <span class="mono short">{{ order.txnId }}</span>
+              <van-icon
+                name="orders-o"
+                class="copy-icon"
+                @click="copy(order.txnId, '支付流水已复制')"
+              />
+            </div>
+          </template>
+        </van-cell>
       </van-cell-group>
 
       <van-cell-group inset title="商品">
@@ -63,6 +84,29 @@ const formatTime = (iso) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
+const copy = async (text, successMsg) => {
+  if (!text) return;
+  try {
+    // navigator.clipboard is async + HTTPS-only. The deprecated execCommand
+    // path is the dev-server fallback (vite dev is http://).
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast(successMsg);
+  } catch (e) {
+    showToast('复制失败，请手动选择');
+  }
+};
+
 const onMockPay = () => {
   showDialog({
     title: '支付回调未实现',
@@ -87,7 +131,31 @@ onMounted(async () => {
 .order-detail-page {
   padding: 16px;
 }
+.mono-with-copy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+}
+.mono {
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+.mono.short {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.copy-icon {
+  cursor: pointer;
+  color: var(--van-primary-color);
+  font-size: 16px;
+  flex-shrink: 0;
+}
 .actions {
-  margin: 24px 16px;
+  margin: 24px 0;
 }
 </style>

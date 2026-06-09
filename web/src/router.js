@@ -27,7 +27,7 @@ const routes = [
       {
         path: 'history',
         name: 'History',
-        component: () => import('@/views/Placeholder.vue'),
+        component: () => import('@/views/History.vue'),
         meta: { title: '生成历史' },
       },
       {
@@ -41,6 +41,12 @@ const routes = [
         name: 'Packages',
         component: () => import('@/views/Packages.vue'),
         meta: { title: '积分套餐' },
+      },
+      {
+        path: 'recharge',
+        name: 'Recharge',
+        component: () => import('@/views/Recharge.vue'),
+        meta: { title: '充值积分' },
       },
       {
         path: 'orders',
@@ -79,6 +85,12 @@ const routes = [
     name: 'Notifications',
     component: () => import('@/views/Notifications.vue'),
     meta: { title: '通知' },
+  },
+  {
+    path: '/agreement',
+    name: 'Agreement',
+    component: () => import('@/views/Agreement.vue'),
+    meta: { title: '用户服务协议' },
   },
   {
     path: '/:pathMatch(.*)*',
