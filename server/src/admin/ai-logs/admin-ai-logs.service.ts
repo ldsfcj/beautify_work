@@ -35,11 +35,11 @@ export class AdminAiLogsService {
 
     const qb = this.repo
       .createQueryBuilder('a')
-      .orderBy('a.created_at', 'DESC');
+      .orderBy('a.createdAt', 'DESC');
 
     if (query.model) qb.andWhere('a.model = :m', { m: query.model });
-    if (query.fromDate) qb.andWhere('a.created_at >= :from', { from: query.fromDate });
-    if (query.toDate) qb.andWhere('a.created_at <= :to', { to: query.toDate });
+    if (query.fromDate) qb.andWhere('a.createdAt >= :from', { from: query.fromDate });
+    if (query.toDate) qb.andWhere('a.createdAt <= :to', { to: query.toDate });
 
     qb.skip((page - 1) * pageSize).take(pageSize);
     const [items, total] = await qb.getManyAndCount();

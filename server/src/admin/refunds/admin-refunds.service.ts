@@ -44,8 +44,9 @@ export class AdminRefundsService {
 
     const qb = this.refunds
       .createQueryBuilder('r')
-      .leftJoinAndMapOne('r.order', Order, 'o', 'o.id = r.order_id')
-      .orderBy('r.created_at', 'DESC');
+      .leftJoinAndSelect('r.order', 'o')
+      .leftJoinAndSelect('o.user', 'u')
+      .orderBy('r.createdAt', 'DESC');
 
     if (query.status && query.status !== ('all' as RefundStatus)) {
       qb.andWhere('r.status = :st', { st: query.status });
@@ -55,14 +56,10 @@ export class AdminRefundsService {
     const [raw, total] = await qb.getManyAndCount();
 
     const items = raw.map((row) => {
-      const flat = row as unknown as Refund & {
-        order: Order | null;
-        user: { nickname: string | null } | null;
-      };
       return {
-        ...flat,
-        orderNo: flat.order?.orderNo ?? null,
-        userNickname: flat.order?.user?.nickname ?? null,
+        ...row,
+        orderNo: row.order?.orderNo ?? null,
+        userNickname: row.order?.user?.nickname ?? null,
       };
     });
 

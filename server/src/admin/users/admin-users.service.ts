@@ -44,7 +44,7 @@ export class AdminUsersService {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
 
-    const qb = this.users.createQueryBuilder('u').orderBy('u.created_at', 'DESC');
+    const qb = this.users.createQueryBuilder('u').orderBy('u.createdAt', 'DESC');
 
     if (query.status && query.status !== ('all' as UserStatus)) {
       qb.andWhere('u.status = :st', { st: query.status });
@@ -54,7 +54,7 @@ export class AdminUsersService {
       qb.andWhere(
         new Brackets((b) => {
           b.where('u.nickname ILIKE :t', { t: term })
-            .orWhere('u.phone_hash ILIKE :t', { t: term });
+            .orWhere('u.phoneHash ILIKE :t', { t: term });
         }),
       );
     }
