@@ -26,6 +26,7 @@ import { AiModule } from './ai/ai.module';
 import { NotificationModule } from './notification/notification.module';
 import { GenerateModule } from './generate/generate.module';
 import { OssModule } from './oss/oss.module';
+import { AdminModule } from './admin/admin.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule as CfgMod } from '@nestjs/config';
 
@@ -64,6 +65,7 @@ import { ConfigModule as CfgMod } from '@nestjs/config';
     AiModule,
     NotificationModule,
     OssModule,
+    AdminModule,
     BullModule.forRootAsync({
       imports: [CfgMod],
       inject: [ConfigService],

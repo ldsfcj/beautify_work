@@ -17,6 +17,7 @@ import { Notification } from '../entities/notification.entity';
 import { InitSchema1700000000000 } from '../migrations/1700000000000-InitSchema';
 import { SeedPresetsAndConfigs1700000000001 } from '../migrations/1700000000001-SeedPresetsAndConfigs';
 import { AddDeletedToGenerationStatus1700000000002 } from '../migrations/1700000000002-AddDeletedToGenerationStatus';
+import { SeedAdminUser1700000000003 } from '../migrations/1700000000003-SeedAdminUser';
 
 /**
  * Shared DataSource options consumed by:
@@ -48,6 +49,7 @@ export const dataSourceOptions: DataSourceOptions = {
     InitSchema1700000000000,
     SeedPresetsAndConfigs1700000000001,
     AddDeletedToGenerationStatus1700000000002,
+    SeedAdminUser1700000000003,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
