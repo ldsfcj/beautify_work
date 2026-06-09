@@ -52,6 +52,13 @@
           :badge="notif.unreadCount > 0 ? String(notif.unreadCount) : ''"
           @click="goNotifications"
         />
+        <span
+          v-if="user.token"
+          class="logout-link"
+          @click="onLogout"
+        >
+          <van-icon name="cross" size="14" /> 退出登录
+        </span>
       </div>
     </aside>
 
@@ -72,6 +79,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { showConfirmDialog } from 'vant';
 import { useNotificationStore } from '@/stores/notification';
 import { useUserStore } from '@/stores/user';
 
@@ -102,6 +110,20 @@ const onBack = () => {
 
 const goNotifications = () => {
   router.push('/notifications');
+};
+
+const onLogout = async () => {
+  try {
+    await showConfirmDialog({
+      title: '退出登录',
+      message: '确定要退出当前账号吗？',
+      confirmButtonText: '退出',
+    });
+  } catch {
+    return;
+  }
+  await user.logout();
+  router.replace('/login');
 };
 
 const pollUnread = async () => {
@@ -241,6 +263,22 @@ onBeforeUnmount(() => {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid var(--ma-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.logout-link {
+  font-size: 13px;
+  color: var(--ma-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s;
+}
+.logout-link:hover {
+  color: var(--ma-danger);
 }
 
 /* Desktop content offset */

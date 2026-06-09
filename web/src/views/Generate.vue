@@ -4,25 +4,34 @@
 
     <section class="section">
       <div class="section-label">客户原图</div>
-      <van-uploader
-        v-model="fileList"
-        :max-count="1"
-        :after-read="onAfterRead"
-        :before-delete="onBeforeDelete"
-        accept="image/*"
-      >
-        <template #default>
-          <div class="upload-trigger">
-            <van-icon name="photograph" size="32" color="#999" />
-            <div class="hint">点击上传 (1 张)</div>
-          </div>
-        </template>
-      </van-uploader>
+      <div class="card upload-card">
+        <van-uploader
+          v-model="fileList"
+          :max-count="1"
+          :after-read="onAfterRead"
+          :before-delete="onBeforeDelete"
+          accept="image/*"
+          class="uploader"
+        >
+          <template #default>
+            <div class="upload-trigger">
+              <van-icon name="photograph" size="48" class="upload-icon" />
+              <div class="upload-title">点击上传客户照片</div>
+              <div class="upload-hint">建议正面、清晰、单人 · 最多 1 张</div>
+            </div>
+          </template>
+        </van-uploader>
+      </div>
     </section>
 
     <section class="section">
-      <div class="section-label">选择项目 (至少 1 项)</div>
-      <div v-if="preset.loading && !preset.loaded" class="loading">
+      <div class="section-label">
+        选择项目 <span class="required">至少 1 项</span>
+        <span v-if="selectedKeys.length" class="selected-count">
+          已选 {{ selectedKeys.length }} 项 · 扣 {{ totalCost }} 积分
+        </span>
+      </div>
+      <div v-if="preset.loading && !preset.loaded" class="card loading">
         <van-loading size="20" /> 加载中…
       </div>
       <van-checkbox-group v-else v-model="selectedKeys" @change="onPresetChange">
@@ -32,37 +41,43 @@
           class="category-block"
         >
           <div class="category-title">{{ categoryLabel(category) }}</div>
-          <van-cell-group inset>
-            <van-cell
+          <div class="preset-grid">
+            <div
               v-for="p in items"
               :key="p.key"
-              clickable
+              class="preset-card"
+              :class="{ 'preset-card--selected': selectedKeys.includes(p.key) }"
               @click="toggle(p.key)"
             >
-              <template #title>
+              <div class="preset-card-head">
                 <div class="preset-name">{{ p.name }}</div>
-                <div v-if="p.description" class="preset-desc">{{ p.description }}</div>
-              </template>
-              <template #right-icon>
-                <van-checkbox :name="p.key" :ref="(el) => bindCheckboxRef(el, p.key)" />
-              </template>
-            </van-cell>
-          </van-cell-group>
+                <van-checkbox
+                  :name="p.key"
+                  :model-value="selectedKeys.includes(p.key)"
+                  @click.stop
+                  :ref="(el) => bindCheckboxRef(el, p.key)"
+                />
+              </div>
+              <div v-if="p.description" class="preset-desc">{{ p.description }}</div>
+            </div>
+          </div>
         </div>
       </van-checkbox-group>
     </section>
 
     <section class="section">
-      <div class="section-label">补充描述 (可选)</div>
-      <van-field
-        v-model="text"
-        type="textarea"
-        rows="3"
-        autosize
-        maxlength="500"
-        show-word-limit
-        placeholder="例如：自然款 / 偏夸张 / 偏甜美…"
-      />
+      <div class="section-label">补充描述 <span class="optional">可选</span></div>
+      <div class="card field-card">
+        <van-field
+          v-model="text"
+          type="textarea"
+          rows="3"
+          autosize
+          maxlength="500"
+          show-word-limit
+          placeholder="例如：自然款 / 偏夸张 / 偏甜美…"
+        />
+      </div>
     </section>
 
     <van-submit-bar
@@ -70,7 +85,7 @@
       :button-text="submitText"
       :loading="submitting"
       :disabled="!canSubmit"
-      button-color="var(--van-primary-color)"
+      button-color="var(--ma-primary)"
       @submit="onSubmit"
     >
       <template #default>合计</template>
@@ -116,9 +131,8 @@ const submitText = computed(() => {
   return `提交（扣 ${totalCost.value} 积分）`;
 });
 
-// We use a programmatic toggle so the cell-click and the checkbox-click both
-// flip state. Vant's checkbox-group tracks names; we keep an empty refs map
-// just so future programmatic focus / scroll-to-error can find them.
+// We keep a refs map purely for future programmatic focus / scroll-to-error;
+// the checkbox-group itself is the source of truth for `selectedKeys`.
 const checkboxRefs = {};
 const bindCheckboxRef = (el, key) => {
   if (el) checkboxRefs[key] = el;
@@ -129,8 +143,7 @@ const toggle = (key) => {
   else selectedKeys.value.push(key);
 };
 const onPresetChange = () => {
-  // The checkbox group is the source of truth; this handler exists so a
-  // future "auto-fill defaultPrompt into text" hook has a stable place.
+  // Stable hook for a future "auto-fill defaultPrompt into text" feature.
 };
 
 onMounted(async () => {
@@ -138,10 +151,10 @@ onMounted(async () => {
 });
 
 const onAfterRead = (file) => {
-  // van-uploader populates file.content (data URL) when the file is
-  // a local blob; that's exactly the shape our submit API expects for
-  // `image_url` in dev (the mock AI adapter never fetches it). For
-  // production we'll swap this for a presigned-OSS direct upload.
+  // van-uploader populates file.content (data URL) for local blobs —
+  // exactly what our `image_url` field expects in dev (the mock AI
+  // adapter never actually fetches it). For production we'll swap
+  // this for a presigned-OSS direct upload.
   imageUrl.value = file.content || '';
   if (!imageUrl.value) {
     showToast('图片读取失败，请重试');
@@ -178,62 +191,186 @@ const onSubmit = async () => {
 
 <style scoped>
 .generate-page {
-  padding: 16px 0 80px;
-}
-.page-title {
-  margin: 0 16px 16px;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--van-text-color);
+  padding: 8px 0 80px;
 }
 .section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   padding: 0 16px;
 }
 .section-label {
-  font-size: 14px;
-  color: var(--van-text-color-2);
-  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ma-text);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.required {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ma-danger);
+  background: rgba(238, 10, 36, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.optional {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ma-text-muted);
+  background: var(--ma-surface);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.selected-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ma-primary);
+}
+
+/* ── Generic white card surface — visible against the cream page bg. */
+.card {
+  background: var(--ma-surface-white);
+  border-radius: 12px;
+  border: 1px solid var(--ma-border);
+  box-shadow: var(--ma-shadow-sm);
+}
+
+/* ── Upload area — self-sized to its parent card, large clickable target. */
+.upload-card {
+  padding: 16px;
+}
+.uploader {
+  display: block;
+  width: 100%;
+}
+/* Make Vant's uploader wrapper take the full row so the preview /
+ * trigger spans the card width — default is inline-block ~80px. */
+.uploader :deep(.van-uploader__wrapper) {
+  width: 100%;
+}
+.uploader :deep(.van-uploader__input-wrapper) {
+  width: 100%;
+}
+.uploader :deep(.van-uploader__preview) {
+  width: 100% !important;
+  margin: 0;
+}
+.uploader :deep(.van-uploader__preview-image) {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
 }
 .upload-trigger {
   width: 100%;
-  height: 120px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  border-radius: 8px;
-  gap: 8px;
+  background: var(--ma-surface);
+  border: 2px dashed var(--ma-border);
+  border-radius: 10px;
+  gap: 10px;
+  transition: border-color 0.15s, background 0.15s;
 }
-.upload-trigger .hint {
+.upload-trigger:hover {
+  border-color: var(--ma-primary);
+  background: rgba(212, 165, 160, 0.06);
+}
+.upload-icon {
+  color: var(--ma-primary);
+}
+.upload-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ma-text);
+}
+.upload-hint {
   font-size: 12px;
-  color: var(--van-text-color-2);
+  color: var(--ma-text-muted);
 }
+
+/* ── Preset selection — card grid with clear selected state. */
 .loading {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 16px;
   font-size: 13px;
-  color: var(--van-text-color-2);
+  color: var(--ma-text-secondary);
 }
 .category-block {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .category-title {
   font-size: 13px;
-  color: var(--van-text-color-2);
-  margin: 0 4px 6px;
+  font-weight: 500;
+  color: var(--ma-text-secondary);
+  margin: 0 4px 8px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.preset-card {
+  background: var(--ma-surface-white);
+  border: 1.5px solid var(--ma-border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.preset-card:hover {
+  border-color: var(--ma-primary);
+}
+.preset-card--selected {
+  border-color: var(--ma-primary);
+  background: rgba(212, 165, 160, 0.08);
+  box-shadow: var(--ma-shadow-sm);
+}
+.preset-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .preset-name {
   font-size: 14px;
-  color: var(--van-text-color);
+  font-weight: 500;
+  color: var(--ma-text);
 }
 .preset-desc {
   font-size: 12px;
-  color: var(--van-text-color-2);
-  margin-top: 2px;
+  color: var(--ma-text-secondary);
+  margin-top: 6px;
   line-height: 1.4;
+}
+
+/* ── Textarea card — same surface treatment as the upload card. */
+.field-card {
+  padding: 4px 0;
+  overflow: hidden;
+}
+.field-card :deep(.van-field) {
+  background: transparent;
+}
+
+/* ── Wider grids on tablet+ */
+@media (min-width: 768px) {
+  .preset-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .upload-trigger {
+    min-height: 220px;
+  }
+}
+@media (min-width: 1024px) {
+  .preset-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 </style>

@@ -49,7 +49,14 @@
     </div>
 
     <div class="danger-zone">
+      <van-button block type="primary" plain @click="onLogout" class="logout-btn">
+        退出登录
+      </van-button>
       <van-button block plain type="danger" @click="onCancel">注销账号</van-button>
+      <p class="danger-hint">
+        退出登录：仅在本设备清除登录态，下次可重新登录。<br />
+        注销账号：30 天后账号及数据永久删除。
+      </p>
     </div>
 
     <van-dialog
@@ -113,6 +120,28 @@ const openAgreement = async (type) => {
     }).catch(() => {});
   } catch (e) {
     /* interceptor */
+  }
+};
+
+const onLogout = async () => {
+  try {
+    await showConfirmDialog({
+      title: '退出登录',
+      message: '确定要退出当前账号吗？',
+      confirmButtonText: '退出',
+    });
+  } catch {
+    return;
+  }
+  try {
+    // Logout calls /auth/logout (best-effort; swallows errors) and
+    // clears local token + profile. Then route to /login.
+    await user.logout();
+    location.href = '/login';
+  } catch (e) {
+    // user.logout() already clears local state in `finally`; even if
+    // the server call fails we still want the user out of the app.
+    location.href = '/login';
   }
 };
 
@@ -181,6 +210,19 @@ const onCancel = async () => {
 }
 .danger-zone {
   margin: 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.logout-btn {
+  /* Primary brand colour (nude-pink) — a normal action, not destructive. */
+}
+.danger-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ma-text-secondary);
+  line-height: 1.6;
+  padding: 0 4px;
 }
 .dialog-body {
   padding: 16px;
