@@ -1,6 +1,6 @@
 <template>
   <div class="generate-page">
-    <h2 class="page-title">AI 整形预览</h2>
+    <!-- Title rendered by van-nav-bar in Layout.vue -->
 
     <section class="section">
       <div class="section-label">客户原图</div>

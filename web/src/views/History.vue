@@ -1,6 +1,6 @@
 <template>
   <div class="history-page">
-    <h2 class="page-title">生成历史</h2>
+    <!-- Title rendered by van-nav-bar in Layout.vue -->
 
     <van-tabs v-model:active="activeTab" sticky @change="onTabChange" class="tabs">
       <van-tab

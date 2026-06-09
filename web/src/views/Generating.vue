@@ -1,34 +1,41 @@
 <template>
   <div class="generating-page">
-    <div class="card">
-      <van-loading type="spinner" size="48" color="var(--van-primary-color)" />
-      <h2 class="title">正在生成预览…</h2>
-      <p class="subtitle">
-        <template v-if="status === 'pending'">排队中，预计 5-15 秒</template>
-        <template v-else-if="status === 'processing'">AI 生成中，预计 5-30 秒</template>
-        <template v-else-if="status === 'success'">即将跳转到结果页</template>
-        <template v-else>{{ status }}</template>
-      </p>
+    <van-nav-bar
+      title="生成中"
+      left-arrow
+      @click-left="onCancel"
+    />
+    <div class="card-wrap">
+      <div class="card">
+        <van-loading type="spinner" size="48" color="var(--van-primary-color)" />
+        <h2 class="title">正在生成预览…</h2>
+        <p class="subtitle">
+          <template v-if="status === 'pending'">排队中，预计 5-15 秒</template>
+          <template v-else-if="status === 'processing'">AI 生成中，预计 5-30 秒</template>
+          <template v-else-if="status === 'success'">即将跳转到结果页</template>
+          <template v-else>{{ status }}</template>
+        </p>
 
-      <div v-if="attempts > 0" class="attempts">
-        已轮询 {{ attempts }} 次 · 上次状态：{{ status }}
+        <div v-if="attempts > 0" class="attempts">
+          已轮询 {{ attempts }} 次 · 上次状态：{{ status }}
+        </div>
+
+        <div class="actions">
+          <van-button plain size="small" @click="onCancel">取消</van-button>
+          <van-button
+            size="small"
+            type="primary"
+            plain
+            :loading="manualRefreshing"
+            @click="pollOnce"
+          >
+            手动刷新
+          </van-button>
+        </div>
       </div>
 
-      <div class="actions">
-        <van-button plain size="small" @click="onCancel">取消</van-button>
-        <van-button
-          size="small"
-          type="primary"
-          plain
-          :loading="manualRefreshing"
-          @click="pollOnce"
-        >
-          手动刷新
-        </van-button>
-      </div>
+      <p class="tip">生成完成后会在「通知」中提醒你，关闭本页也无所谓。</p>
     </div>
-
-    <p class="tip">生成完成后会在「通知」中提醒你，关闭本页也无所谓。</p>
   </div>
 </template>
 
@@ -104,7 +111,13 @@ const onCancel = () => {
 <style scoped>
 .generating-page {
   min-height: 100vh;
-  padding: 80px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  background: var(--ma-surface);
+}
+.card-wrap {
+  flex: 1;
+  padding: 48px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -120,7 +133,7 @@ const onCancel = () => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--ma-shadow-sm);
 }
 .title {
   margin: 12px 0 0;

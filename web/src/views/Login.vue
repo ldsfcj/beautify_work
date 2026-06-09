@@ -68,7 +68,7 @@
 <script setup>
 import { computed, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { showDialog, showToast } from 'vant';
+import { showToast } from 'vant';
 import * as authApi from '@/api/auth';
 import * as agreementApi from '@/api/agreement';
 import { useUserStore } from '@/stores/user';
@@ -149,18 +149,10 @@ const onSubmit = async () => {
   }
 };
 
-const openAgreement = async (type) => {
-  try {
-    const data = await agreementApi.getCurrent(type);
-    showDialog({
-      title: data.type === 'user' ? '用户服务协议' : '隐私政策',
-      message: data.content,
-      confirmButtonText: '我已阅读',
-      messageAlign: 'left',
-    }).catch(() => {});
-  } catch (e) {
-    console.warn('openAgreement', e);
-  }
+const openAgreement = (type) => {
+  // Navigate to the dedicated agreement page instead of showing a
+  // cramped dialog — long legal text is unreadable in a dialog box.
+  router.push({ path: '/agreement', query: { type, readonly: '1' } });
 };
 </script>
 

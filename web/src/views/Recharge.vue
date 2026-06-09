@@ -1,6 +1,6 @@
 <template>
   <div class="recharge-page">
-    <h2 class="page-title">充值积分</h2>
+    <!-- Title rendered by van-nav-bar in Layout.vue -->
     <p class="page-hint">当前余额 <strong>{{ user.credits }}</strong> 积分</p>
 
     <van-cell-group inset class="agreement-card">
@@ -35,7 +35,7 @@
         <div class="total">到账 {{ pkg.credits + pkg.bonusCredits }} 积分</div>
         <div class="price">
           <span class="yen">¥</span>
-          <span class="amount">{{ (pkg.priceCents / 100).toFixed(2) }}</span>
+          <span class="amount">{{ Math.round(pkg.priceCents / 100) }}</span>
         </div>
         <div class="validity">有效期 {{ pkg.validityDays }} 天</div>
         <van-button

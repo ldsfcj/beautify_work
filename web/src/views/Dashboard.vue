@@ -16,19 +16,19 @@
 
     <div class="quick-grid">
       <div class="quick-item" @click="$router.push('/generate')">
-        <van-icon name="photograph" size="32" color="#1989fa" />
+        <van-icon name="photograph" size="32" class="quick-icon" />
         <span>AI 预览</span>
       </div>
       <div class="quick-item" @click="$router.push('/history')">
-        <van-icon name="orders-o" size="32" color="#1989fa" />
+        <van-icon name="orders-o" size="32" class="quick-icon" />
         <span>历史</span>
       </div>
       <div class="quick-item" @click="$router.push('/orders')">
-        <van-icon name="balance-o" size="32" color="#1989fa" />
+        <van-icon name="balance-o" size="32" class="quick-icon" />
         <span>订单</span>
       </div>
       <div class="quick-item" @click="$router.push('/profile')">
-        <van-icon name="user-o" size="32" color="#1989fa" />
+        <van-icon name="user-o" size="32" class="quick-icon" />
         <span>我的</span>
       </div>
     </div>
@@ -113,14 +113,17 @@ onMounted(async () => {
   padding: 16px 0;
 }
 .hero {
-  background: linear-gradient(135deg, #1989fa 0%, #4ea3ff 100%);
+  /* Nude-pink hero per design spec (#d4a5a0 primary). The slightly
+   * darker bottom stop gives the card depth on a pale-pink page. */
+  background: linear-gradient(135deg, #d4a5a0 0%, #c08a85 100%);
   color: #fff;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(212, 165, 160, 0.25);
 }
 .hello .nickname {
   font-size: 18px;
@@ -160,6 +163,11 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--van-text-color);
   cursor: pointer;
+}
+.quick-icon {
+  /* Brand-aligned icon colour — pulls from the shared CSS variable so
+   * a future theme switch only needs to touch variables.scss. */
+  color: var(--van-primary-color);
 }
 .recent {
   background: #fff;
@@ -211,9 +219,11 @@ onMounted(async () => {
   background: rgba(238, 10, 36, 0.85);
 }
 .banner {
-  background: linear-gradient(135deg, #ff976a 0%, #ff5e5e 100%);
+  /* Warm coral on cream rather than the previous orange-red — keeps
+   * the same "attention" vibe while staying within the nude-pink family. */
+  background: linear-gradient(135deg, #e8b5a8 0%, #d4a5a0 100%);
   color: #fff;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px 16px;
   display: flex;
   align-items: center;

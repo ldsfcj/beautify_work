@@ -82,7 +82,9 @@ const user = useUserStore();
 const showEditNickname = ref(false);
 const nicknameDraft = ref('');
 
-const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg';
+// Use a simple SVG data URI as the default avatar — avoids external
+// CDN dependency and keeps the warm-pink brand feel.
+const defaultAvatar = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect fill="#e8d5cf" width="48" height="48" rx="24"/><text x="24" y="30" text-anchor="middle" fill="#d4a5a0" font-size="20" font-family="sans-serif">?</text></svg>')}`;
 
 const onSaveNickname = async () => {
   const v = nicknameDraft.value.trim();
