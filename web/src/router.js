@@ -21,7 +21,7 @@ const routes = [
       {
         path: 'generate',
         name: 'Generate',
-        component: () => import('@/views/Placeholder.vue'),
+        component: () => import('@/views/Generate.vue'),
         meta: { title: 'AI 生成' },
       },
       {
@@ -61,6 +61,18 @@ const routes = [
     name: 'OrderCreate',
     component: () => import('@/views/OrderCreate.vue'),
     meta: { title: '确认订单' },
+  },
+  {
+    path: '/generating/:id',
+    name: 'Generating',
+    component: () => import('@/views/Generating.vue'),
+    meta: { title: '生成中' },
+  },
+  {
+    path: '/result/:id',
+    name: 'Result',
+    component: () => import('@/views/Result.vue'),
+    meta: { title: '预览结果' },
   },
   {
     path: '/notifications',
