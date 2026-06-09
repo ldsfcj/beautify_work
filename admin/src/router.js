@@ -43,7 +43,30 @@ const routes = [
         component: () => import('@/views/Packages.vue'),
         meta: { title: '积分套餐', icon: 'goods' },
       },
-      // Tasks 34 adds: /configs /ai-logs /audit /refunds
+      {
+        path: 'configs',
+        name: 'Configs',
+        component: () => import('@/views/Configs.vue'),
+        meta: { title: '系统配置', icon: 'setting' },
+      },
+      {
+        path: 'refunds',
+        name: 'Refunds',
+        component: () => import('@/views/Refunds.vue'),
+        meta: { title: '退款审核', icon: 'refresh' },
+      },
+      {
+        path: 'ai-logs',
+        name: 'AiLogs',
+        component: () => import('@/views/AiLogs.vue'),
+        meta: { title: 'AI 调用日志', icon: 'cpu' },
+      },
+      {
+        path: 'audit-logs',
+        name: 'AuditLogs',
+        component: () => import('@/views/AuditLogs.vue'),
+        meta: { title: '审计日志', icon: 'document' },
+      },
     ],
   },
   {

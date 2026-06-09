@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard';
+import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
 import { AdminPackagesService, AdminPackageUpsertDto } from './admin-packages.service';
 
 /**
@@ -29,17 +30,21 @@ export class AdminPackagesController {
   }
 
   @Post()
-  create(@Body() dto: AdminPackageUpsertDto) {
-    return this.svc.upsert(dto);
+  create(@Body() dto: AdminPackageUpsertDto, @CurrentUser() operator: JwtPayload) {
+    return this.svc.upsert(dto, operator);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: AdminPackageUpsertDto) {
-    return this.svc.upsert(dto, id);
+  update(
+    @Param('id') id: string,
+    @Body() dto: AdminPackageUpsertDto,
+    @CurrentUser() operator: JwtPayload,
+  ) {
+    return this.svc.upsert(dto, operator, id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.svc.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() operator: JwtPayload) {
+    return this.svc.remove(id, operator);
   }
 }

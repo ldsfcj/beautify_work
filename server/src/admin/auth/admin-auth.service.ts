@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { scrypt as scryptCb, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { AdminUser, AdminRole } from '../../entities/admin-user.entity';
+import { AuditService } from '../../audit/audit.service';
 
 const scrypt = promisify(scryptCb) as (
   password: string,
@@ -62,6 +63,7 @@ export class AdminAuthService {
     private readonly admins: Repository<AdminUser>,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -77,6 +79,14 @@ export class AdminAuthService {
 
     admin.lastLoginAt = new Date();
     await this.admins.save(admin);
+
+    // Audit log is best-effort; failure must not block login.
+    await this.audit.write({
+      adminId: admin.id,
+      action: 'admin.login',
+      targetType: 'admin',
+      targetId: admin.id,
+    });
 
     return {
       token: await this.signAccess(admin.id, admin.role),

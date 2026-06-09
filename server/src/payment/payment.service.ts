@@ -1,7 +1,9 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHash } from 'node:crypto';
 import { CreditLedgerService } from '../credit/creditledger.service';
+import { AuditService } from '../audit/audit.service';
 import { Order, OrderStatus, PaymentMethod } from '../entities/order.entity';
 import {
   NotifyHeaders,
@@ -21,9 +23,10 @@ import {
  * which is harmless on idempotent recharge but spams logs and (for
  * Wechat) leaves the order open forever on the provider side.
  *
- * Audit logging is intentionally a `console.warn` here — the proper
- * audit service is built in Task 24. Search for "Task 24" to find
- * the wire-up site once that module lands.
+ * Bad signatures are written to the audit log (Task 24 cleanup) with
+ * a sha256 of the raw body and a header subset, so an investigator
+ * can correlate attacks across requests without us storing the full
+ * payload.
  */
 @Injectable()
 export class PaymentService {
@@ -33,6 +36,7 @@ export class PaymentService {
     @Inject(PAYMENT_ROUTER) private readonly router: PaymentRouter,
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     private readonly ledger: CreditLedgerService,
+    private readonly audit: AuditService,
   ) {}
 
   async handleWechatNotify(
@@ -69,7 +73,21 @@ export class PaymentService {
 
     const verified = await provider.verifySign(rawBody, headers);
     if (!verified) {
-      // TODO(Task 24): emit audit-warn with rawBody hash + headers
+      // Persist a forensic record: sha256(rawBody) + header subset, but
+      // never the raw body (avoids storing attacker payloads in PG).
+      const bodyHash = createHash('sha256').update(rawBody).digest('hex');
+      await this.audit.write({
+        adminId: '00000000-0000-0000-0000-000000000000', // system sentinel
+        action: 'payment.notify.bad_signature',
+        targetType: 'order',
+        targetId: null,
+        payload: {
+          method,
+          bodyHash,
+          remoteIp: headers['x-forwarded-for'] ?? headers['remote-addr'] ?? null,
+          ua: headers['user-agent'] ?? null,
+        },
+      });
       throw new BadRequestException('支付回调签名错误');
     }
 

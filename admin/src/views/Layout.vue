@@ -51,6 +51,10 @@ import {
   User,
   Collection,
   Goods,
+  Setting,
+  Refresh,
+  Cpu,
+  Document,
   Fold,
   Expand,
 } from '@element-plus/icons-vue';
@@ -78,6 +82,10 @@ const ICON_MAP = {
   user: User,
   collection: Collection,
   goods: Goods,
+  setting: Setting,
+  refresh: Refresh,
+  cpu: Cpu,
+  document: Document,
 };
 
 const menuItems = computed(() => {

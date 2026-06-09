@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { User, UserStatus } from '../../entities/user.entity';
 import { CreditLedgerService } from '../../credit/creditledger.service';
+import { AuditService } from '../../audit/audit.service';
 import { JwtPayload } from '../../common/decorators/current-user.decorator';
 
 export interface AdminUserListQuery {
@@ -36,6 +37,7 @@ export class AdminUsersService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly credits: CreditLedgerService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(query: AdminUserListQuery = {}): Promise<AdminUserListResult> {
@@ -96,10 +98,17 @@ export class AdminUsersService {
 
     const relatedId = `admin-adjust:${operator.id}:${Date.now()}:${dto.reason.slice(0, 32)}`;
     const { balanceAfter } = await this.credits.recharge(targetUserId, dto.amount, relatedId);
+    await this.audit.write({
+      adminId: operator.id,
+      action: 'user.credit.adjust',
+      targetType: 'user',
+      targetId: targetUserId,
+      payload: { amount: dto.amount, reason: dto.reason, relatedId, balanceAfter },
+    });
     return {
       balanceAfter,
       // ledgerId is the relatedId we just used; we expose it for the
-      // admin UI to jump to the audit log entry once Task 34 ships.
+      // admin UI to jump to the audit log entry.
       ledgerId: relatedId,
     };
   }

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PresetItem } from '../../entities/preset-item.entity';
+import { AuditService } from '../../audit/audit.service';
+import { JwtPayload } from '../../common/decorators/current-user.decorator';
 
 export interface AdminPresetListResult {
   items: PresetItem[];
@@ -33,6 +35,7 @@ export interface AdminPresetUpsertDto {
 export class AdminPresetsService {
   constructor(
     @InjectRepository(PresetItem) private readonly repo: Repository<PresetItem>,
+    private readonly audit: AuditService,
   ) {}
 
   async list(opts: { includeInactive?: boolean } = {}): Promise<AdminPresetListResult> {
@@ -44,12 +47,21 @@ export class AdminPresetsService {
     return { items, total };
   }
 
-  async upsert(dto: AdminPresetUpsertDto, id?: string): Promise<PresetItem> {
+  async upsert(dto: AdminPresetUpsertDto, operator: JwtPayload, id?: string): Promise<PresetItem> {
     if (id) {
       const existing = await this.repo.findOne({ where: { id } });
       if (!existing) throw new NotFoundException('preset 不存在');
+      const previous = { ...existing };
       Object.assign(existing, dto);
-      return this.repo.save(existing);
+      const saved = await this.repo.save(existing);
+      await this.audit.write({
+        adminId: operator.id,
+        action: 'preset.update',
+        targetType: 'preset',
+        targetId: saved.id,
+        payload: { key: saved.key, previous, next: dto },
+      });
+      return saved;
     }
     // Create: key must be unique.
     const dup = await this.repo.findOne({ where: { key: dto.key } });
@@ -59,16 +71,31 @@ export class AdminPresetsService {
       isActive: dto.isActive ?? true,
       sortOrder: dto.sortOrder ?? 0,
     });
-    return this.repo.save(created);
+    const saved = await this.repo.save(created);
+    await this.audit.write({
+      adminId: operator.id,
+      action: 'preset.create',
+      targetType: 'preset',
+      targetId: saved.id,
+      payload: { key: saved.key, dto },
+    });
+    return saved;
   }
 
-  async remove(id: string): Promise<{ id: string; isActive: boolean }> {
+  async remove(id: string, operator: JwtPayload): Promise<{ id: string; isActive: boolean }> {
     const existing = await this.repo.findOne({ where: { id } });
     if (!existing) throw new NotFoundException('preset 不存在');
     // Soft-disable rather than hard-delete: keep the key stable for
     // existing generations.presetKeys rows.
     existing.isActive = false;
     await this.repo.save(existing);
+    await this.audit.write({
+      adminId: operator.id,
+      action: 'preset.soft_delete',
+      targetType: 'preset',
+      targetId: existing.id,
+      payload: { key: existing.key },
+    });
     return { id: existing.id, isActive: false };
   }
 }

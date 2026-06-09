@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AdminUsersService } from './admin-users.service';
 import { User, UserStatus } from '../../entities/user.entity';
 import { CreditLedgerService } from '../../credit/creditledger.service';
+import { AuditService } from '../../audit/audit.service';
 
 /**
  * AdminUsersService unit tests. We mock the User repo and the
@@ -24,6 +25,7 @@ describe('AdminUsersService', () => {
     getManyAndCount: jest.Mock;
   };
   let credits: { recharge: jest.Mock };
+  let audit: { write: jest.Mock };
 
   beforeEach(async () => {
     qb = {
@@ -38,12 +40,14 @@ describe('AdminUsersService', () => {
       findOne: jest.fn(),
     };
     credits = { recharge: jest.fn() };
+    audit = { write: jest.fn().mockResolvedValue(undefined) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AdminUsersService,
         { provide: getRepositoryToken(User), useValue: users },
         { provide: CreditLedgerService, useValue: credits },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
 
@@ -141,6 +145,14 @@ describe('AdminUsersService', () => {
         expect.stringMatching(/^admin-adjust:admin-1:\d+:manual bonus$/),
       );
       expect(res.balanceAfter).toBe(110);
+      // Audit row written for the credit adjust.
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'user.credit.adjust',
+          targetId: 'u-1',
+          payload: expect.objectContaining({ amount: 10, reason: 'manual bonus' }),
+        }),
+      );
     });
   });
 });

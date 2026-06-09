@@ -14,10 +14,12 @@ import { AdminUser } from '../entities/admin-user.entity';
 import { UserAgreement } from '../entities/user-agreement.entity';
 import { SmsCode } from '../entities/sms-code.entity';
 import { Notification } from '../entities/notification.entity';
+import { AuditLog } from '../entities/audit-log.entity';
 import { InitSchema1700000000000 } from '../migrations/1700000000000-InitSchema';
 import { SeedPresetsAndConfigs1700000000001 } from '../migrations/1700000000001-SeedPresetsAndConfigs';
 import { AddDeletedToGenerationStatus1700000000002 } from '../migrations/1700000000002-AddDeletedToGenerationStatus';
 import { SeedAdminUser1700000000003 } from '../migrations/1700000000003-SeedAdminUser';
+import { AuditLogs1700000000004 } from '../migrations/1700000000004-AuditLogs';
 
 /**
  * Shared DataSource options consumed by:
@@ -44,12 +46,14 @@ export const dataSourceOptions: DataSourceOptions = {
     UserAgreement,
     SmsCode,
     Notification,
+    AuditLog,
   ],
   migrations: [
     InitSchema1700000000000,
     SeedPresetsAndConfigs1700000000001,
     AddDeletedToGenerationStatus1700000000002,
     SeedAdminUser1700000000003,
+    AuditLogs1700000000004,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

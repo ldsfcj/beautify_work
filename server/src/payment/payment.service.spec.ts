@@ -78,11 +78,13 @@ describe('PaymentService', () => {
     ledger = {
       recharge: jest.fn().mockResolvedValue({ balanceAfter: 220 }),
     } as any;
+    const audit = { write: jest.fn().mockResolvedValue(undefined) } as any;
 
     service = new PaymentService(
       router,
       orders as unknown as Repository<Order>,
       ledger as unknown as CreditLedgerService,
+      audit,
     );
   });
 

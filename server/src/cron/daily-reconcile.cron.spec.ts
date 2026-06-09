@@ -34,6 +34,7 @@ describe('DailyReconcileCron', () => {
   let alipay: jest.Mocked<PaymentProvider>;
   let payment: jest.Mocked<Pick<PaymentService, 'creditOrderFromReconcile'>>;
   let warnSpy: jest.SpyInstance;
+  let audit: { write: jest.Mock };
 
   function makeProvider(): jest.Mocked<PaymentProvider> {
     return {
@@ -74,12 +75,15 @@ describe('DailyReconcileCron', () => {
     payment = {
       creditOrderFromReconcile: jest.fn().mockResolvedValue(undefined),
     } as any;
+    const auditLocal = { write: jest.fn().mockResolvedValue(undefined) } as any;
+    audit = auditLocal;
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     cron = new DailyReconcileCron(
       orders as unknown as Repository<Order>,
       router,
       payment as unknown as PaymentService,
+      auditLocal,
     );
   });
 
@@ -126,8 +130,9 @@ describe('DailyReconcileCron', () => {
     const result = await cron.reconcile();
 
     expect(payment.creditOrderFromReconcile).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining(stale.orderNo),
+    // Task 24 cleanup: warn path writes to audit log instead of console.
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'reconcile.warn' }),
     );
     expect(result).toEqual({ scanned: 1, credited: 0, warned: 1 });
   });
@@ -141,7 +146,12 @@ describe('DailyReconcileCron', () => {
     expect(wechat.queryOrder).not.toHaveBeenCalled();
     expect(alipay.queryOrder).not.toHaveBeenCalled();
     expect(payment.creditOrderFromReconcile).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalled();
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'reconcile.warn',
+        payload: expect.objectContaining({ reason: 'no_payment_method' }),
+      }),
+    );
     expect(result).toEqual({ scanned: 1, credited: 0, warned: 1 });
   });
 

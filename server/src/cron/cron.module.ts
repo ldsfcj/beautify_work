@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from '../entities/order.entity';
 import { PaymentModule } from '../payment/payment.module';
+import { AuditModule } from '../audit/audit.module';
 import { CronController } from './cron.controller';
 import { DailyReconcileCron } from './daily-reconcile.cron';
 
@@ -27,6 +28,7 @@ import { DailyReconcileCron } from './daily-reconcile.cron';
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Order]),
     PaymentModule,
+    AuditModule,
   ],
   controllers: [CronController],
   providers: [DailyReconcileCron],

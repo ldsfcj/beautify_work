@@ -3,6 +3,9 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AdminPackagesService } from './admin-packages.service';
 import { CreditPackage } from '../../entities/credit-package.entity';
+import { AuditService } from '../../audit/audit.service';
+
+const operator = { id: 'admin-1', type: 'admin' } as any;
 
 describe('AdminPackagesService', () => {
   let service: AdminPackagesService;
@@ -12,6 +15,7 @@ describe('AdminPackagesService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let audit: { write: jest.Mock };
 
   beforeEach(async () => {
     repo = {
@@ -20,10 +24,12 @@ describe('AdminPackagesService', () => {
       create: jest.fn((dto) => dto),
       save: jest.fn(async (entity) => ({ id: 'pkg-new', ...entity })),
     };
+    audit = { write: jest.fn().mockResolvedValue(undefined) };
     const moduleRef = await Test.createTestingModule({
       providers: [
         AdminPackagesService,
         { provide: getRepositoryToken(CreditPackage), useValue: repo },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
     service = moduleRef.get(AdminPackagesService);
@@ -41,16 +47,22 @@ describe('AdminPackagesService', () => {
 
   describe('upsert (create)', () => {
     it('defaults bonusCredits=0, isActive=true, sortOrder=0', async () => {
-      const created = await service.upsert({
-        name: '新手',
-        credits: 50,
-        priceCents: 2900,
-        validityDays: 90,
-      });
+      const created = await service.upsert(
+        {
+          name: '新手',
+          credits: 50,
+          priceCents: 2900,
+          validityDays: 90,
+        },
+        operator,
+      );
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({ bonusCredits: 0, isActive: true, sortOrder: 0 }),
       );
       expect(created.id).toBe('pkg-new');
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'package.create' }),
+      );
     });
   });
 
@@ -60,6 +72,7 @@ describe('AdminPackagesService', () => {
       await expect(
         service.upsert(
           { name: 'x', credits: 10, priceCents: 100, validityDays: 30 },
+          operator,
           'missing',
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
@@ -69,10 +82,14 @@ describe('AdminPackagesService', () => {
       repo.findOne.mockResolvedValue({ id: 'pkg-1', credits: 50, priceCents: 2900 });
       await service.upsert(
         { name: 'x', credits: 80, priceCents: 4900, validityDays: 90 },
+        operator,
         'pkg-1',
       );
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'pkg-1', credits: 80, priceCents: 4900 }),
+      );
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'package.update' }),
       );
     });
   });
@@ -80,8 +97,11 @@ describe('AdminPackagesService', () => {
   describe('remove', () => {
     it('soft-disables', async () => {
       repo.findOne.mockResolvedValue({ id: 'pkg-1', isActive: true });
-      const res = await service.remove('pkg-1');
+      const res = await service.remove('pkg-1', operator);
       expect(res).toEqual({ id: 'pkg-1', isActive: false });
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'package.soft_delete' }),
+      );
     });
   });
 });

@@ -11,8 +11,11 @@ import { Refund } from '../entities/refund.entity';
 import { AiCallLog } from '../entities/ai-call-log.entity';
 import { PresetItem } from '../entities/preset-item.entity';
 import { CreditPackage } from '../entities/credit-package.entity';
+import { SystemConfig } from '../entities/system-config.entity';
+import { AuditLog } from '../entities/audit-log.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { CreditModule } from '../credit/credit.module';
+import { AuditModule } from '../audit/audit.module';
 import { AdminAuthController } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
@@ -25,16 +28,26 @@ import { AdminPresetsController } from './presets/admin-presets.controller';
 import { AdminPresetsService } from './presets/admin-presets.service';
 import { AdminPackagesController } from './packages/admin-packages.controller';
 import { AdminPackagesService } from './packages/admin-packages.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditController } from './audit/audit.controller';
+import { AdminConfigsController } from './configs/admin-configs.controller';
+import { AdminConfigsService } from './configs/admin-configs.service';
+import { AdminRefundsController } from './refunds/admin-refunds.controller';
+import { AdminRefundsService } from './refunds/admin-refunds.service';
+import { AdminAiLogsController } from './ai-logs/admin-ai-logs.controller';
+import { AdminAiLogsService } from './ai-logs/admin-ai-logs.service';
 
 /**
  * Back-office (`/api/admin/*`) module. Registers:
  *   - Auth (Task 32): AdminAuthController + Service + JwtStrategy
  *   - Task 33: Dashboard / Orders / Users / Presets / Packages
- *   - Task 34: Configs / Refunds / AiLogs / AuditLogs (added in a follow-up)
+ *   - Task 34: Audit + Configs / Refunds / AiLogs
  *
- * `AdminAuthGuard` is applied at the controller level (per-class
- * `@UseGuards`) rather than globally so the public login/refresh
- * routes can stay `@Public()` while everything else remains gated.
+ * `AuditService` is the single write-side audit fan-out; it is
+ * injected into AdminAuthService (login), AdminUsersService
+ * (credit adjust), AdminPresetsService (CRUD), AdminPackagesService
+ * (CRUD), AdminConfigsService (upsert), AdminRefundsService
+ * (approve/reject).
  */
 @Module({
   imports: [
@@ -56,10 +69,11 @@ import { AdminPackagesService } from './packages/admin-packages.service';
       AiCallLog,
       PresetItem,
       CreditPackage,
+      SystemConfig,
+      AuditLog,
     ]),
-    // Re-export the credit ledger so AdminUsersService can call
-    // `recharge()` for the manual-balance-adjustment path.
     CreditModule,
+    AuditModule,
   ],
   controllers: [
     AdminAuthController,
@@ -68,6 +82,10 @@ import { AdminPackagesService } from './packages/admin-packages.service';
     AdminUsersController,
     AdminPresetsController,
     AdminPackagesController,
+    AdminConfigsController,
+    AdminRefundsController,
+    AdminAiLogsController,
+    AuditController,
   ],
   providers: [
     AdminAuthService,
@@ -76,8 +94,12 @@ import { AdminPackagesService } from './packages/admin-packages.service';
     AdminUsersService,
     AdminPresetsService,
     AdminPackagesService,
+    AdminConfigsService,
+    AdminRefundsService,
+    AdminAiLogsService,
+    AuditService,
     JwtStrategy,
   ],
-  exports: [AdminAuthService],
+  exports: [AdminAuthService, AuditService],
 })
 export class AdminModule {}

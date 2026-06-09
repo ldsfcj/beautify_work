@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CreditModule } from '../credit/credit.module';
+import { AuditModule } from '../audit/audit.module';
 import { Order } from '../entities/order.entity';
 import { WechatPaymentService } from './wechat/wechat-payment.service';
 import { AlipayPaymentService } from './alipay/alipay-payment.service';
@@ -14,7 +15,7 @@ import {
 } from './payment.types';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order]), CreditModule],
+  imports: [TypeOrmModule.forFeature([Order]), CreditModule, AuditModule],
   controllers: [PaymentController],
   providers: [
     WechatPaymentService,
