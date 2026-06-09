@@ -18,3 +18,38 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* ----------------------------------------------------------------------------
+ * Desktop / tablet layout adjustments (D14).
+ *
+ * On a phone the Vant tabbar sits at the bottom of every primary view, but
+ * on a PC (>1024px) the app renders inside a centered ~480px column, so
+ * the mobile tabbar and the mobile topbar credits pill become dead
+ * weight. The runbook (Task 28 done criteria) calls these out explicitly:
+ * "响应式断点 mixin 在 desktop 上自动隐藏 Vant 的 mobile-only 元素". The
+ * phone-shaped viewport remains untouched.
+ *
+ * The breakpoint constant is sourced from `utils/responsive.js` to keep
+ * the magic number in one place. JS callers use `useBreakpoint()` for
+ * reactive logic; this stylesheet covers the static class-based parts.
+ * -------------------------------------------------------------------------- */
+$bp-desktop: 1024px;
+
+@media (min-width: $bp-desktop) {
+  /* Hide the mobile tabbar on desktop — the centered content column is
+   * short enough that bottom navigation adds no value. */
+  .layout .van-tabbar {
+    display: none;
+  }
+  /* Hide the mobile topbar credits pill — the desktop hero card on the
+   * dashboard shows the same number more prominently. */
+  .layout .topbar .credits {
+    display: none;
+  }
+  /* Cap the centered content column so the phone-shaped card doesn't
+   * stretch to fill a 27" monitor. */
+  .layout > .content {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
