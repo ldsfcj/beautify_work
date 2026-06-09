@@ -26,6 +26,10 @@
         <span class="brand">医美咨询</span>
         <span class="credits" v-if="user.token">{{ user.credits }} 积分</span>
       </div>
+      <!-- Back button — only shows on non-home routes, mirrors mobile UX. -->
+      <div v-if="showBack" class="sidebar-back" @click="onBack">
+        <van-icon name="arrow-left" size="18" /> 返回
+      </div>
       <nav class="sidebar-nav">
         <router-link to="/" :class="{ 'router-link-active': route.name === 'Dashboard' }">
           <van-icon name="home-o" size="20" /> 工作台
@@ -141,7 +145,8 @@ onBeforeUnmount(() => {
   color: var(--ma-primary);
   font-weight: 600;
 }
-:deep(.van-nav-bar__left .van-icon) {
+:deep(.van-nav-bar__left .van-icon),
+:deep(.van-nav-bar__right .van-icon) {
   color: var(--ma-text);
 }
 .credits {
@@ -151,6 +156,7 @@ onBeforeUnmount(() => {
 }
 .bell {
   cursor: pointer;
+  color: var(--ma-text);
 }
 .content {
   flex: 1;
@@ -197,6 +203,22 @@ onBeforeUnmount(() => {
   gap: 4px;
   padding: 8px 12px;
   flex: 1;
+}
+.sidebar-back {
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ma-text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.sidebar-back:hover {
+  background: var(--ma-surface);
+  color: var(--ma-primary);
 }
 .sidebar-nav a {
   display: flex;

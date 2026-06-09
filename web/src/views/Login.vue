@@ -157,10 +157,13 @@ const openAgreement = (type) => {
 </script>
 
 <style scoped>
+/* Login page — warm nude-pink brand consistency.
+ * The hero section uses a subtle gradient to echo the dashboard hero
+ * without overwhelming the form. */
 .login-page {
   min-height: 100vh;
   padding: 80px 16px 24px;
-  background: var(--van-background);
+  background: var(--ma-surface);
 }
 .hero {
   text-align: center;
@@ -169,11 +172,11 @@ const openAgreement = (type) => {
 .hero h1 {
   font-size: 24px;
   font-weight: 600;
-  color: var(--van-primary-color);
+  color: var(--ma-primary);
   margin: 0 0 8px;
 }
 .subtitle {
-  color: var(--van-text-color-2);
+  color: var(--ma-text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -188,13 +191,20 @@ const openAgreement = (type) => {
   flex-wrap: wrap;
   gap: 4px;
   font-size: 12px;
-  color: var(--van-text-color-2);
+  color: var(--ma-text-secondary);
 }
 .link {
-  color: var(--van-primary-color);
+  color: var(--ma-primary);
   cursor: pointer;
+  font-weight: 500;
 }
 .submit {
   margin: 24px 16px 0;
+}
+.submit .van-button--primary {
+  /* Ensure even if Vant's cascading falls through, our button
+   * stays nude-pink. */
+  background: var(--ma-primary);
+  border-color: var(--ma-primary);
 }
 </style>

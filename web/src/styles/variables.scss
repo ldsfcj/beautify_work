@@ -10,8 +10,13 @@
  * Both Vant variables (prefixed --van-) and project variables
  * (prefixed --ma-) live here so a future theme switch only needs
  * to touch this file.
+ *
+ * NOTE: `:root:root` (double) gives specificity (0,2,0) which beats
+ * Vant's auto-injected component CSS (`:root` → 0,1,0). Without this
+ * Vant's default blue (#1989fa) would override our nude-pink
+ * because component CSS lands in the DOM after global.scss.
  */
-:root {
+:root:root {
   /* ── Vant overrides ──────────────────────────────────── */
   --van-primary-color: #d4a5a0;
   --van-background-2: #f5ebe7;
