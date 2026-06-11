@@ -155,15 +155,41 @@ export class GenerateProcessor extends WorkerHost {
 
   /**
    * After all retries are exhausted, Bull marks the job
-   * `failed`. We've already logged + refunded inside
-   * `process()`; this hook is a no-op placeholder so a future
-   * alerting integration (Task 36) can drop in cleanly.
+   * `failed`. We use this terminal event as the single source
+   * of truth for "this job is permanently dead" — flipping the
+   * Generation row to `failed` here covers every failure mode
+   * that escapes AIService.failAndRefund (which only fires on
+   * permanent AI vendor errors). Watermark / OSS upload / DB
+   * write failures throw from `process()` and would otherwise
+   * leave the row stuck in `pending` forever, showing the
+   * user an infinite "生成中" spinner.
+   *
+   * Idempotent: AIService.failAndRefund may have already
+   * flipped the row on an AI-side error; the redundant update
+   * is harmless.
    */
   @OnWorkerEvent('failed')
-  onFailed(job: Job<GenerateJobData>, err: Error) {
-    if (job.attemptsMade >= (job.opts.attempts ?? 1)) {
+  async onFailed(job: Job<GenerateJobData>, err: Error) {
+    if (job.attemptsMade < (job.opts.attempts ?? 1)) {
+      // Still retrying — don't flip the row yet, the next
+      // attempt might succeed.
+      return;
+    }
+    const generationId = job.data.generationId;
+    this.logger.error(
+      `[worker] generation ${generationId} permanently failed: ${err.message}`,
+    );
+    try {
+      await this.gens.update(generationId, {
+        status: GenerationStatus.FAILED,
+        // Truncate so a 50KB AI-vendor error string doesn't
+        // blow past the column limit on the next schema bump.
+        errorMsg: (err.message ?? 'unknown').slice(0, 500),
+        resultUrl: null,
+      });
+    } catch (updateErr: any) {
       this.logger.error(
-        `[worker] generation ${job.data.generationId} permanently failed: ${err.message}`,
+        `[worker] failed to mark generation ${generationId} as failed: ${updateErr?.message ?? updateErr}`,
       );
     }
   }

@@ -1,17 +1,18 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { promises as fs } from 'fs';
-import * as path from 'path';
+import sharp from 'sharp';
 import { AiAdapter, AiEditInput, AiEditResult } from './ai-adapter.interface';
 
 /**
  * Adapter for the Tongyi Wanx image-editing API (Dashscope).
  *
  * Two execution paths:
- *   1. **Dev / test (`NODE_ENV !== 'production'`)** — fall through
- *      to the same fixture the MockAdapter uses. We deliberately
- *      don't hit the network in dev so CI / local runs don't need
- *      a real API key and don't burn quota.
+ *   1. **Dev / test (`NODE_ENV !== 'production'`)** — synthesize
+ *      a 1024×1024 grey placeholder JPEG in-process. We
+ *      deliberately don't hit the network in dev so CI / local
+ *      runs don't need a real API key and don't burn quota.
+ *      (Earlier this path read a 1×1 fixture off disk — the
+ *      fixture was too small for the watermark pipeline.)
  *   2. **Production** — call Dashscope's image2image endpoint with
  *      the user's signed image URL and the composed prompt, then
  *      fetch the result buffer. Wrapped in a 503 if the API key is
@@ -27,17 +28,10 @@ import { AiAdapter, AiEditInput, AiEditResult } from './ai-adapter.interface';
 export class TongyiAdapter implements AiAdapter {
   readonly name = 'tongyi' as const;
   private readonly logger = new Logger(TongyiAdapter.name);
-  private static readonly FIXTURE = path.join(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    'test',
-    'fixtures',
-    'sample-face.jpg',
-  );
   private static readonly COST_CENTS = 5; // placeholder; reconcile against invoice
   private static readonly MODEL_ID = 'wanx-v1';
+  private static readonly WIDTH = 1024;
+  private static readonly HEIGHT = 1024;
 
   constructor(private readonly cfg: ConfigService) {}
 
@@ -45,11 +39,20 @@ export class TongyiAdapter implements AiAdapter {
     const start = Date.now();
 
     if (this.cfg.get<string>('NODE_ENV') !== 'production') {
-      // Dev shortcut: identical fixture to MockAdapter so tests
-      // and the dashboard demo work without a real key.
-      const resultBuffer = await fs.readFile(TongyiAdapter.FIXTURE);
+      // Dev shortcut: synthesize a real-sized JPEG so the
+      // watermark pipeline has pixels to work with.
+      const resultBuffer = await sharp({
+        create: {
+          width: TongyiAdapter.WIDTH,
+          height: TongyiAdapter.HEIGHT,
+          channels: 3,
+          background: { r: 200, g: 200, b: 200 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
       this.logger.debug(
-        `[tongyi:dev] served ${resultBuffer.length}B from fixture (${Date.now() - start}ms)`,
+        `[tongyi:dev] served ${resultBuffer.length}B synthesized ${TongyiAdapter.WIDTH}×${TongyiAdapter.HEIGHT} placeholder (${Date.now() - start}ms)`,
       );
       return {
         resultBuffer,

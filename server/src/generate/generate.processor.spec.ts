@@ -141,4 +141,39 @@ describe('GenerateProcessor', () => {
       expect.objectContaining({ success: false }),
     );
   });
+
+  it('onFailed (retries exhausted): marks generation row FAILED with the last error', async () => {
+    // Bull fires this AFTER the last attempt has thrown. The
+    // post-AI failure modes (watermark / OSS / DB write) never
+    // go through AIService.failAndRefund, so without this hook
+    // the row stays `pending` forever — the user sees "生成中"
+    // spin indefinitely. The hook is the single source of
+    // truth for "this job is permanently dead".
+    const failedJob = { ...job, attemptsMade: 3, opts: { attempts: 3 } };
+    const err = new Error('VipsJpeg: Corrupt JPEG data: 1 extraneous bytes before marker 0xda');
+
+    await processor.onFailed(failedJob as any, err);
+
+    expect(gens.update).toHaveBeenCalledWith(
+      'gen-1',
+      expect.objectContaining({
+        status: GenerationStatus.FAILED,
+        errorMsg: expect.stringContaining('VipsJpeg'),
+        resultUrl: null,
+      }),
+    );
+  });
+
+  it('onFailed (mid-retry, e.g. attempt 1 of 3): does NOT mark the row failed yet', async () => {
+    // Transient failures should not flip the row — only the
+    // terminal "attempts exhausted" event should. This guards
+    // against an over-eager fix that marks FAILED on the first
+    // hiccup and skips the remaining retries.
+    const retryingJob = { ...job, attemptsMade: 1, opts: { attempts: 3 } };
+    const err = new Error('transient network blip');
+
+    await processor.onFailed(retryingJob as any, err);
+
+    expect(gens.update).not.toHaveBeenCalled();
+  });
 });

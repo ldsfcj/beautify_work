@@ -1,5 +1,7 @@
 import sharp from 'sharp';
+import { ConfigService } from '@nestjs/config';
 import { WatermarkService } from './image-watermark';
+import { TongyiAdapter } from './adapters/tongyi.adapter';
 
 /**
  * The watermark is a pure image transform — no DB, no network.
@@ -54,5 +56,32 @@ describe('WatermarkService', () => {
     const outP = await service.add(portrait);
     expect((await sharp(outL).metadata()).width).toBe(1920);
     expect((await sharp(outP).metadata()).width).toBe(720);
+  });
+
+  it('accepts whatever the dev-mode tongyi adapter returns', async () => {
+    // End-to-end check: the dev shortcut in tongyi.adapter.ts
+    // synthesizes an image in-process. Whatever bytes it
+    // produces must survive the watermark pipeline, otherwise
+    // the user sees an infinite "生成中" while Bull retries 3×.
+    // The earlier 1×1 fixture failed here with
+    //   "VipsJpeg: Corrupt JPEG data: 1 extraneous bytes before
+    //    marker 0xda"
+    // because the SVG badge collapsed to 0×0. Replacing the
+    // fixture with sharp({create:…}) made it pass.
+    const cfg = {
+      get: jest.fn((k: string) =>
+        k === 'NODE_ENV' ? 'development' : undefined,
+      ),
+    } as unknown as ConfigService;
+    const adapter = new TongyiAdapter(cfg);
+    const aiResult = await adapter.editImage({
+      imageSignedUrl: 'https://example.invalid/x.jpg',
+      prompt: 'subtle rhinoplasty',
+    });
+
+    const out = await service.add(aiResult.resultBuffer);
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe('jpeg');
+    expect(meta.width).toBeGreaterThanOrEqual(512);
   });
 });

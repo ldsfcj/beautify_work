@@ -1,14 +1,14 @@
 import { ConfigService } from '@nestjs/config';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { promises as fs } from 'fs';
-import * as path from 'path';
+import sharp from 'sharp';
 import { TongyiAdapter } from './tongyi.adapter';
 
 /**
  * Coverage:
- *   1. Dev path: serves the same fixture the mock uses, but
- *      tagged `wanx-v1-mock` so the AI-log view can tell "real
- *      vendor dev shortcut" from "fallback to mock adapter".
+ *   1. Dev path: synthesizes a real-sized JPEG (1024×1024) so
+ *      the watermark pipeline can process it, tagged
+ *      `wanx-v1-mock` so the AI-log view can tell "real vendor
+ *      dev shortcut" from "fallback to mock adapter".
  *   2. Prod without API key: throws 503 — the AIService fallback
  *      policy in Task 23 expects this exact status to decide
  *      whether to retry / fall back.
@@ -34,7 +34,7 @@ describe('TongyiAdapter', () => {
     return new TongyiAdapter(cfg);
   }
 
-  it('dev path serves the fixture tagged wanx-v1-mock', async () => {
+  it('dev path serves a real-sized JPEG tagged wanx-v1-mock', async () => {
     process.env.NODE_ENV = 'development';
     const adapter = makeAdapter('development', null);
 
@@ -43,10 +43,10 @@ describe('TongyiAdapter', () => {
       prompt: 'subtle rhinoplasty',
     });
 
-    const expected = await fs.readFile(
-      path.join(__dirname, '..', '..', '..', 'test', 'fixtures', 'sample-face.jpg'),
-    );
-    expect(result.resultBuffer.equals(expected)).toBe(true);
+    const meta = await sharp(result.resultBuffer).metadata();
+    expect(meta.format).toBe('jpeg');
+    expect(meta.width).toBeGreaterThanOrEqual(512);
+    expect(meta.height).toBeGreaterThanOrEqual(512);
     expect(result.modelUsed).toBe('wanx-v1-mock');
     expect(result.costCents).toBe(5);
   });
