@@ -10,6 +10,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "start:worker": "ts-node --transpile-only -r tsconfig-paths/register src/workers/generate.worker.ts",
+    "migrate:dev-urls": "ts-node --transpile-only -r tsconfig-paths/register src/scripts/migrate-file-urls.ts",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:unit": "jest --testPathPattern=src/.*\\.spec\\.ts$ --forceExit",
