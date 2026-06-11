@@ -76,6 +76,15 @@ interface CreditPricingTable {
 }
 
 /**
+ * OSS key the client submits in `image_url` must look like
+ * `uploads/{userId}/<file>.<ext>`. The pattern keeps the key
+ * shape predictable; the actual authorization gate is the
+ * userId equality check below — a caller can never submit a
+ * key whose userId segment doesn't match their own principal.
+ */
+const OSS_KEY_PATTERN = /^uploads\/([0-9a-zA-Z-]+)\/[\w-]+\.[a-z0-9]+$/;
+
+/**
  * Default cost ladder. The 5-credit cap mirrors the runbook (Task 25):
  *   1 preset  → 2 credits
  *   2 presets → 3
@@ -139,6 +148,37 @@ export class GenerateService {
       throw new BadRequestException({
         code: 'EMPTY_PRESETS',
         message: 'preset_keys 不能为空',
+      });
+    }
+
+    // image_url is now an OSS key produced by the presigned-upload
+    // flow (NOT a base64 data URL — those blow the 100kb JSON
+    // limit and yield 413s on real photos). The key must be
+    // user-scoped: a caller can never submit another user's key
+    // or a result-image key.
+    if (!OSS_KEY_PATTERN.test(dto.image_url)) {
+      throw new BadRequestException({
+        code: 'INVALID_IMAGE_KEY',
+        message: 'image_url 必须是 uploads/{userId}/<file>.<ext> 格式的 OSS key',
+      });
+    }
+    const keyUser = dto.image_url.split('/')[1];
+    if (keyUser !== userId) {
+      throw new BadRequestException({
+        code: 'INVALID_IMAGE_KEY',
+        message: 'image_url 的 userId 与当前用户不匹配',
+      });
+    }
+
+    // Verify the file actually exists in OSS. Without this check a
+    // client could construct a well-formed key but skip the upload,
+    // causing the worker to fail when it tries to sign and fetch
+    // the image.
+    const keyExists = await this.oss.exists(dto.image_url);
+    if (!keyExists) {
+      throw new BadRequestException({
+        code: 'IMAGE_NOT_UPLOADED',
+        message: '图片尚未上传，请先完成上传',
       });
     }
 

@@ -26,11 +26,15 @@ declare module 'ali-oss' {
 
   interface SignatureUrlOptions {
     expires?: number;
+    method?: 'GET' | 'PUT' | 'POST' | 'DELETE';
+    [subResource: string]: unknown;
   }
 
   export default class OSS {
     constructor(options: OssOptions);
     put(key: string, body: Buffer | string, options?: PutOptions): Promise<PutResult>;
     signatureUrl(key: string, options?: SignatureUrlOptions): Promise<string>;
+    /** HEAD on an object — 404 if the key doesn't exist. */
+    head(key: string): Promise<{ status: number; headers: Record<string, string> }>;
   }
 }

@@ -21,6 +21,10 @@ describe('GenerateController', () => {
   let controller: GenerateController;
   let service: jest.Mocked<Pick<GenerateService, 'submit'>>;
   const USER = { id: 'user-1', type: 'user' as const };
+  // The new presigned-upload flow requires user-scoped OSS keys
+  // (validation lives in the service). Controller tests just
+  // verify wiring, but we keep the fixtures realistic.
+  const VALID_KEY = `uploads/${USER.id}/test.jpg`;
 
   beforeEach(async () => {
     service = { submit: jest.fn() } as any;
@@ -43,12 +47,12 @@ describe('GenerateController', () => {
 
   it('POST /submit returns { generation_id, balance_after } from the service', async () => {
     const r = await controller.submit(USER as any, {
-      image_url: 'https://oss.example.com/u1.jpg',
+      image_url: VALID_KEY,
       preset_keys: ['nose_bridge_lift'],
     });
     expect(r).toEqual({ generation_id: 'gen-1', balance_after: 8 });
     expect(service.submit).toHaveBeenCalledWith('user-1', {
-      image_url: 'https://oss.example.com/u1.jpg',
+      image_url: VALID_KEY,
       preset_keys: ['nose_bridge_lift'],
       text: undefined,
     });
@@ -62,7 +66,7 @@ describe('GenerateController', () => {
       ),
     );
     await expect(
-      controller.submit(USER as any, { image_url: 'x', preset_keys: ['a'] }),
+      controller.submit(USER as any, { image_url: VALID_KEY, preset_keys: ['a'] }),
     ).rejects.toMatchObject({ status: HttpStatus.PAYMENT_REQUIRED });
   });
 
@@ -74,14 +78,14 @@ describe('GenerateController', () => {
       ),
     );
     await expect(
-      controller.submit(USER as any, { image_url: 'x', preset_keys: ['a'] }),
+      controller.submit(USER as any, { image_url: VALID_KEY, preset_keys: ['a'] }),
     ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
   });
 
   it('empty preset_keys bubbles as 400', async () => {
     service.submit.mockRejectedValueOnce(new BadRequestException('empty'));
     await expect(
-      controller.submit(USER as any, { image_url: 'x', preset_keys: [] }),
+      controller.submit(USER as any, { image_url: VALID_KEY, preset_keys: [] }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

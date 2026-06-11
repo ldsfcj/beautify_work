@@ -86,4 +86,71 @@ export class OssService {
     const fullPath = path.join(this.devDir, key);
     return `file://${fullPath}`;
   }
+
+  /**
+   * Issue a presigned PUT URL the client uses to upload directly
+   * to OSS, bypassing the API server. The signature binds:
+   *
+   *   - HTTP method = PUT
+   *   - Content-Type the client declares
+   *   - 5-min expiry by default
+   *
+   * Ali-oss `signatureUrl` accepts `method: 'PUT'`; the returned
+   * URL embeds the OSSAccessKeyId + signature + expires query
+   * params and the Content-Type subresource so the receiver can
+   * reject mismatched uploads.
+   *
+   * In dev (no AK/SK) we return a relative URL pointing to our
+   * own `PUT /api/oss/dev-upload/:key` endpoint. The client code
+   * is identical in both modes — same `axios.put(presigned, file)`
+   * call — only the host differs.
+   */
+  async getUploadSignature(
+    key: string,
+    contentType: string,
+    expiresInSec = 300,
+  ): Promise<{ url: string; key: string; expiresIn: number }> {
+    if (this.client) {
+      const url = await this.client.signatureUrl(key, {
+        method: 'PUT',
+        expires: expiresInSec,
+        // Ali-oss treats unknown subresources as passthrough query
+        // params; on the OSS side the request must carry this exact
+        // Content-Type header or the signature mismatches.
+        'Content-Type': contentType,
+      } as any);
+      return { url, key, expiresIn: expiresInSec };
+    }
+    return {
+      url: `/api/oss/dev-upload/${encodeURIComponent(key)}`,
+      key,
+      expiresIn: expiresInSec,
+    };
+  }
+
+  /**
+   * Sanity-check whether a key exists. Used by the /generate/submit
+   * handler to reject bogus keys the client constructed but never
+   * uploaded.
+   *
+   * Ali-oss `head()` is a HEAD on the object; a missing key throws
+   * with `code: 'NoSuchKey'` and HTTP 404. In dev we stat the file.
+   */
+  async exists(key: string): Promise<boolean> {
+    if (this.client) {
+      try {
+        await this.client.head(key);
+        return true;
+      } catch (e: any) {
+        if (e?.status === 404 || e?.code === 'NoSuchKey') return false;
+        throw e;
+      }
+    }
+    try {
+      await fs.access(path.join(this.devDir, key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

@@ -66,4 +66,24 @@ describe('OssService (dev fallback)', () => {
     const u2 = await service.upload('k2', buf);
     expect(u1).not.toBe(u2);
   });
+
+  it('getUploadSignature in dev mode returns the local dev-upload URL', async () => {
+    const { url, key, expiresIn } = await service.getUploadSignature(
+      'uploads/user-1/abc.jpg',
+      'image/jpeg',
+      300,
+    );
+    expect(key).toBe('uploads/user-1/abc.jpg');
+    expect(expiresIn).toBe(300);
+    expect(url).toBe('/api/oss/dev-upload/uploads%2Fuser-1%2Fabc.jpg');
+  });
+
+  it('exists returns true after a successful upload', async () => {
+    await service.upload('uploads/user-1/abc.jpg', Buffer.from('img'));
+    expect(await service.exists('uploads/user-1/abc.jpg')).toBe(true);
+  });
+
+  it('exists returns false for a key that was never written', async () => {
+    expect(await service.exists('uploads/user-1/missing.jpg')).toBe(false);
+  });
 });

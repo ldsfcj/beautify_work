@@ -68,10 +68,15 @@ export class GenerateProcessor extends WorkerHost {
     const { generationId, userId, imageUrl, presetKeys, text } = job.data;
     let aiResult;
     try {
+      // The queue payload carries the OSS key (cheap to store, no
+      // expiry). The AI vendor needs a real signed URL to fetch,
+      // so we sign on the way out. 5-min TTL is plenty for a
+      // single AI call; Bull retries re-sign each attempt.
+      const imageSignedUrl = await this.oss.signedUrl(imageUrl, 300);
       aiResult = await this.ai.generate({
         generationId,
         userId,
-        imageSignedUrl: imageUrl,
+        imageSignedUrl,
         presetKeys,
         userText: text,
       });

@@ -98,16 +98,20 @@ import { computed, onMounted, ref } from 'vue';
 import { showToast } from 'vant';
 import { useRouter } from 'vue-router';
 import { usePresetStore, computeClientCost } from '@/stores/preset';
+import { useUserStore } from '@/stores/user';
 import { submit as submitGenerate } from '@/api/generate';
+import { getPresignedUploadUrl, uploadFileToOss } from '@/api/oss';
 
 const router = useRouter();
 const preset = usePresetStore();
+const user = useUserStore();
 
-const fileList = ref([]); // van-uploader data shape: [{ url, file, ... }]
-const imageUrl = ref(''); // data URL we ship as `image_url` to the API
+const fileList = ref([]); // van-uploader data shape: [{ url, file, status, message }]
+const imageKey = ref(''); // OSS key we'll submit as `image_url`
 const selectedKeys = ref([]);
 const text = ref('');
 const submitting = ref(false);
+const uploading = ref(false);
 
 const CATEGORY_LABELS = {
   nose: '鼻部',
@@ -122,12 +126,17 @@ const categoryLabel = (c) => CATEGORY_LABELS[c] || c;
 const totalCost = computed(() => computeClientCost(selectedKeys.value.length));
 
 const canSubmit = computed(
-  () => Boolean(imageUrl.value) && selectedKeys.value.length > 0 && !submitting.value,
+  () =>
+    Boolean(imageKey.value) &&
+    selectedKeys.value.length > 0 &&
+    !submitting.value &&
+    !uploading.value,
 );
 
 const submitText = computed(() => {
   if (selectedKeys.value.length === 0) return '请选择项目';
-  if (!imageUrl.value) return '请上传图片';
+  if (!imageKey.value) return '请上传图片';
+  if (uploading.value) return '上传中…';
   return `提交（扣 ${totalCost.value} 积分）`;
 });
 
@@ -150,19 +159,60 @@ onMounted(async () => {
   await preset.ensureLoaded();
 });
 
-const onAfterRead = (file) => {
-  // van-uploader populates file.content (data URL) for local blobs —
-  // exactly what our `image_url` field expects in dev (the mock AI
-  // adapter never actually fetches it). For production we'll swap
-  // this for a presigned-OSS direct upload.
-  imageUrl.value = file.content || '';
-  if (!imageUrl.value) {
-    showToast('图片读取失败，请重试');
+/**
+ * Build the user-scoped OSS key. `userId` is opaque to the client —
+ * we just need a stable unique segment per upload so concurrent
+ * uploads from the same user don't collide.
+ */
+const buildOssKey = () => {
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 10);
+  // userId is a UUID from the auth payload; we keep it opaque.
+  const userId = (user.profile?.id || 'anon').replace(/[^0-9a-f-]/gi, '');
+  // Filename segment: timestamp_random, .jpg default — van-uploader
+  // gives us a Blob with a type we can match.
+  return `uploads/${userId}/${ts}_${rand}.jpg`;
+};
+
+const inferContentType = (file) => {
+  // file.file is the underlying Blob from <input type="file">. Most
+  // browsers set file.type correctly; fall back to jpeg for HEIC
+  // (Safari labels it image/heic or leaves it empty).
+  return file.file?.type || 'image/jpeg';
+};
+
+const onAfterRead = async (file) => {
+  // Mark the uploader row as 'uploading' so the spinner shows.
+  file.status = 'uploading';
+  file.message = '准备上传…';
+  uploading.value = true;
+  imageKey.value = '';
+  try {
+    const key = buildOssKey();
+    const contentType = inferContentType(file);
+    const { url } = await getPresignedUploadUrl(key, contentType);
+    file.message = '上传中…';
+    await uploadFileToOss(url, file.file, contentType, ({ loaded, total }) => {
+      // Vant shows a tiny percentage; clamp 0-100.
+      const pct = total ? Math.round((loaded / total) * 100) : 0;
+      file.message = `上传中… ${pct}%`;
+    });
+    file.status = 'done';
+    file.message = '';
+    imageKey.value = key;
+  } catch (e) {
+    // Interceptor surfaces the error to the user. We still need to
+    // flip the uploader row to 'failed' so the preview shows the X
+    // and the user can retry via the trash icon.
+    file.status = 'failed';
+    file.message = '上传失败';
+  } finally {
+    uploading.value = false;
   }
 };
 
 const onBeforeDelete = () => {
-  imageUrl.value = '';
+  imageKey.value = '';
   return true;
 };
 
@@ -171,7 +221,7 @@ const onSubmit = async () => {
   submitting.value = true;
   try {
     const res = await submitGenerate({
-      image_url: imageUrl.value,
+      image_url: imageKey.value,
       preset_keys: selectedKeys.value,
       text: text.value.trim() || undefined,
     });

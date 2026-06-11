@@ -21,18 +21,23 @@ describe('GenerateProcessor', () => {
   let processor: GenerateProcessor;
   let ai: jest.Mocked<Pick<AiService, 'generate'>>;
   let watermark: jest.Mocked<Pick<WatermarkService, 'add'>>;
-  let oss: jest.Mocked<Pick<OssService, 'upload'>>;
+  let oss: jest.Mocked<Pick<OssService, 'upload' | 'signedUrl'>>;
   let ledger: jest.Mocked<Pick<CreditLedgerService, 'consume' | 'refund'>>;
   let notif: jest.Mocked<Pick<NotificationService, 'create'>>;
   let gens: jest.Mocked<Pick<Repository<Generation>, 'update'>> & { create?: any };
   let aiLogs: jest.Mocked<Pick<Repository<AiCallLog>, 'create' | 'save'>>;
   let redis: { decr: jest.Mock };
 
+  // Queue payloads now carry OSS keys (cheap, no expiry). The
+  // worker signs them right before the AI call.
+  const OSS_KEY = 'uploads/user-1/test.jpg';
+  const SIGNED_URL = 'https://oss.example.com/signed/u1.jpg';
+
   const job = {
     data: {
       generationId: 'gen-1',
       userId: 'user-1',
-      imageUrl: 'https://oss.example.com/u1.jpg',
+      imageUrl: OSS_KEY,
       presetKeys: ['nose_bridge_lift'],
       text: null,
     },
@@ -50,7 +55,10 @@ describe('GenerateProcessor', () => {
       }),
     } as any;
     watermark = { add: jest.fn().mockImplementation(async (b: Buffer) => b) } as any;
-    oss = { upload: jest.fn().mockResolvedValue('https://oss.example.com/gen/gen-1.jpg') } as any;
+    oss = {
+      upload: jest.fn().mockResolvedValue('https://oss.example.com/gen/gen-1.jpg'),
+      signedUrl: jest.fn().mockResolvedValue(SIGNED_URL),
+    } as any;
     ledger = { consume: jest.fn(), refund: jest.fn() } as any;
     notif = { create: jest.fn().mockResolvedValue({ id: 'n-1' }) } as any;
     gens = { update: jest.fn().mockResolvedValue({ affected: 1 }) } as any;
@@ -72,9 +80,16 @@ describe('GenerateProcessor', () => {
     );
   });
 
-  it('happy path: watermarks, uploads, marks success, sends notification, logs call', async () => {
+  it('happy path: signs key, watermarks, uploads, marks success, sends notification, logs call', async () => {
     await processor.process(job);
 
+    // Worker signs the queued OSS key into a 5-min URL right
+    // before calling the AI service. The signed URL — not the
+    // raw key — is what AIService fetches.
+    expect(oss.signedUrl).toHaveBeenCalledWith(OSS_KEY, 300);
+    expect(ai.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ imageSignedUrl: SIGNED_URL }),
+    );
     expect(watermark.add).toHaveBeenCalledWith(Buffer.from('result-bytes'));
     const uploadCall = (oss.upload as jest.Mock).mock.calls[0];
     expect(uploadCall[0]).toBe('gen/gen-1.jpg');

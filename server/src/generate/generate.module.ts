@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CreditModule } from '../credit/credit.module';
 import { AiModule } from '../ai/ai.module';
 import { NotificationModule } from '../notification/notification.module';
+import { OssModule } from '../oss/oss.module';
 import { Generation } from '../entities/generation.entity';
 import { SystemConfig } from '../entities/system-config.entity';
 import { AiCallLog } from '../entities/ai-call-log.entity';
@@ -14,7 +15,6 @@ import {
   GenerateService,
 } from './generate.service';
 import { AI_GENERATE_QUEUE_NAME, GenerateProcessor } from './generate.processor';
-import { OssService } from '../oss/oss.service';
 import { WatermarkService } from '../ai/image-watermark';
 
 /**
@@ -27,10 +27,13 @@ import { WatermarkService } from '../ai/image-watermark';
  *     dedicated worker process (see src/workers/generate.worker.ts).
  *     In the API process it sits idle but still has its
  *     `@Processor` decorator bound, which is fine.
- *   - `OssService` + `WatermarkService` are owned by the worker
- *     side, but the module exports them so future admin
- *     endpoints (Task 34 — back-office image inspector) can
- *     reach them without an import cycle.
+ *   - `OssService` is imported via `OssModule` (single instance
+ *     shared with OssController and any other consumer).
+ *     `WatermarkService` is self-contained (no deps) so it
+ *     lives as a local provider.
+ *   - Both are exported so future admin endpoints (Task 34 —
+ *     back-office image inspector) can reach them without an
+ *     import cycle.
  */
 @Module({
   imports: [
@@ -39,12 +42,12 @@ import { WatermarkService } from '../ai/image-watermark';
     CreditModule,
     AiModule,
     NotificationModule,
+    OssModule,
   ],
   controllers: [GenerateController],
   providers: [
     GenerateService,
     GenerateProcessor,
-    OssService,
     WatermarkService,
     {
       // The service uses `@Inject(AI_GENERATE_QUEUE)` to grab
@@ -54,6 +57,6 @@ import { WatermarkService } from '../ai/image-watermark';
       useExisting: `BullQueue_${AI_GENERATE_QUEUE_NAME}`,
     },
   ],
-  exports: [GenerateService, GenerateProcessor, OssService, WatermarkService],
+  exports: [GenerateService, GenerateProcessor, WatermarkService],
 })
 export class GenerateModule {}

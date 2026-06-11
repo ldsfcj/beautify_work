@@ -33,6 +33,9 @@ import { GenerateService } from './generate.service';
 describe('GenerateService', () => {
   const USER_ID = 'user-1';
   const GEN_ID = 'gen-1';
+  // Valid OSS key the new presigned-upload flow expects: must be
+  // user-scoped and shaped `uploads/{userId}/<file>.<ext>`.
+  const VALID_KEY = `uploads/${USER_ID}/test.jpg`;
 
   let service: GenerateService;
   let gens: jest.Mocked<Pick<Repository<Generation>, 'create' | 'save'>>;
@@ -63,7 +66,7 @@ describe('GenerateService', () => {
     // requires them; null is fine.
     const aiLogs = { find: jest.fn() } as any;
     const downloads = { create: jest.fn(), save: jest.fn() } as any;
-    const oss = { signedUrl: jest.fn() } as any;
+    const oss = { signedUrl: jest.fn(), exists: jest.fn().mockResolvedValue(true) } as any;
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -85,7 +88,7 @@ describe('GenerateService', () => {
 
   it('submit debits credits, saves a pending generation, and enqueues the job', async () => {
     const result = await service.submit(USER_ID, {
-      image_url: 'https://oss.example.com/u1.jpg',
+      image_url: VALID_KEY,
       preset_keys: ['nose_bridge_lift'],
     });
 
@@ -102,7 +105,7 @@ describe('GenerateService', () => {
     expect(gens.create).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: USER_ID,
-        originalUrl: 'https://oss.example.com/u1.jpg',
+        originalUrl: VALID_KEY,
         presetKeys: ['nose_bridge_lift'],
         creditsCost: 2,
         status: GenerationStatus.PENDING,
@@ -116,7 +119,7 @@ describe('GenerateService', () => {
       expect.objectContaining({
         generationId: GEN_ID,
         userId: USER_ID,
-        imageUrl: 'https://oss.example.com/u1.jpg',
+        imageUrl: VALID_KEY,
         presetKeys: ['nose_bridge_lift'],
       }),
       expect.objectContaining({
@@ -131,7 +134,7 @@ describe('GenerateService', () => {
       (ledger.consume as jest.Mock).mockClear();
       (gens.save as jest.Mock).mockClear();
       await service.submit(USER_ID, {
-        image_url: 'x',
+        image_url: VALID_KEY,
         preset_keys: Array(n).fill('k'),
       });
       expect((ledger.consume as jest.Mock).mock.calls[0][1]).toBe(expected);
@@ -141,7 +144,7 @@ describe('GenerateService', () => {
   it('caps cost at 5 credits for 5+ presets', async () => {
     (ledger.consume as jest.Mock).mockClear();
     await service.submit(USER_ID, {
-      image_url: 'x',
+      image_url: VALID_KEY,
       preset_keys: ['a', 'b', 'c', 'd', 'e', 'f'],
     });
     expect((ledger.consume as jest.Mock).mock.calls[0][1]).toBe(5);
@@ -156,7 +159,7 @@ describe('GenerateService', () => {
     } as SystemConfig);
     (ledger.consume as jest.Mock).mockClear();
     await service.submit(USER_ID, {
-      image_url: 'x',
+      image_url: VALID_KEY,
       preset_keys: ['a', 'b', 'c'],
     });
     expect((ledger.consume as jest.Mock).mock.calls[0][1]).toBe(30);
@@ -172,7 +175,7 @@ describe('GenerateService', () => {
 
     await expect(
       service.submit(USER_ID, {
-        image_url: 'x',
+        image_url: VALID_KEY,
         preset_keys: ['a'],
       }),
     ).rejects.toMatchObject({
@@ -189,7 +192,7 @@ describe('GenerateService', () => {
 
     await expect(
       service.submit(USER_ID, {
-        image_url: 'x',
+        image_url: VALID_KEY,
         preset_keys: ['a'],
       }),
     ).rejects.toThrow('db down');
@@ -208,7 +211,7 @@ describe('GenerateService', () => {
 
     await expect(
       service.submit(USER_ID, {
-        image_url: 'x',
+        image_url: VALID_KEY,
         preset_keys: ['a'],
       }),
     ).rejects.toMatchObject({
@@ -222,16 +225,37 @@ describe('GenerateService', () => {
 
   it('rejects an empty preset_keys array with a 400', async () => {
     await expect(
-      service.submit(USER_ID, { image_url: 'x', preset_keys: [] }),
+      service.submit(USER_ID, { image_url: VALID_KEY, preset_keys: [] }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(ledger.consume).not.toHaveBeenCalled();
     expect(queue.add).not.toHaveBeenCalled();
   });
 
+  it('rejects a malformed image_url (not a user-scoped OSS key) with a 400', async () => {
+    await expect(
+      service.submit(USER_ID, { image_url: 'x', preset_keys: ['a'] }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_IMAGE_KEY' },
+    });
+    expect(ledger.consume).not.toHaveBeenCalled();
+  });
+
+  it("rejects a key whose userId prefix doesn't match the caller", async () => {
+    await expect(
+      service.submit(USER_ID, {
+        image_url: 'uploads/some-other-user-uuid/x.jpg',
+        preset_keys: ['a'],
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_IMAGE_KEY' },
+    });
+    expect(ledger.consume).not.toHaveBeenCalled();
+  });
+
   it('expiresAt is ~30 days from now', async () => {
     const before = Date.now();
     await service.submit(USER_ID, {
-      image_url: 'x',
+      image_url: VALID_KEY,
       preset_keys: ['a'],
     });
     const after = Date.now();
@@ -240,5 +264,22 @@ describe('GenerateService', () => {
     // 30 days = 30 * 86400_000 ms; allow a 1s drift for the test clock.
     expect(delta).toBeGreaterThanOrEqual(30 * 86400_000 - 1000);
     expect(delta).toBeLessThanOrEqual(30 * 86400_000 + (after - before) + 1000);
+  });
+
+  it('rejects an OSS key that was never uploaded with IMAGE_NOT_UPLOADED', async () => {
+    const ossExists = service['oss'].exists as jest.Mock;
+    ossExists.mockResolvedValueOnce(false);
+
+    await expect(
+      service.submit(USER_ID, {
+        image_url: VALID_KEY,
+        preset_keys: ['a'],
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'IMAGE_NOT_UPLOADED' },
+    });
+
+    expect(ledger.consume).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
   });
 });
