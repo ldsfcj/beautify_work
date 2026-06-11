@@ -6,6 +6,7 @@ node_modules/
 coverage/
 dist/
 server/dist/
+server/.oss-dev/
 web/dist/
 admin/dist/
 .env
