@@ -283,3 +283,139 @@ describe('GenerateService', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 });
+
+// ───────────────────────────────────────────────────────────────────
+// Read paths must wrap the stored OSS keys (bare, e.g. `uploads/<id>/x`)
+// through `OssService.signedUrl()` so the browser can actually load
+// them. Without the wrap, `<img :src="originalUrl">` resolves the
+// key as a same-origin relative path and 404s — the result page's
+// left side (the user's own photo) stays blank.
+// ───────────────────────────────────────────────────────────────────
+describe('GenerateService read paths wrap stored OSS keys', () => {
+  const USER_ID = 'user-1';
+  const GEN_ID = 'gen-1';
+  const RAW_ORIGINAL = `uploads/${USER_ID}/1781170297835_xsp38pn1.png`;
+  const RAW_RESULT = `gen/ef0bb34c-12e9-4a5f-a2e6-0f802775b444.jpg`;
+  const SIGNED_ORIGINAL = `/api/oss/dev-file/uploads/${USER_ID}/1781170297835_xsp38pn1.png`;
+  const SIGNED_RESULT = `/api/oss/dev-file/gen/ef0bb34c-12e9-4a5f-a2e6-0f802775b444.jpg`;
+
+  let service: GenerateService;
+  let gens: jest.Mocked<Pick<Repository<Generation>, 'findOne' | 'findAndCount'>>;
+  let oss: { signedUrl: jest.Mock; exists: jest.Mock };
+
+  beforeEach(async () => {
+    gens = {
+      findOne: jest.fn(),
+      findAndCount: jest.fn(),
+    } as any;
+    // signedUrl is a thin pass-through to the real OssService in
+    // dev mode — the helper in the service should hand the raw
+    // column value to it. The dev-mode OssService returns
+    // `/api/oss/dev-file/...` for a bare key, which is what we
+    // assert against. (Prod-mode signatureUrl isn't on the dev
+    // path so we don't mock it.)
+    oss = {
+      signedUrl: jest.fn(async (key: string) => `/api/oss/dev-file/${key}`),
+      exists: jest.fn().mockResolvedValue(true),
+    } as any;
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        GenerateService,
+        { provide: getRepositoryToken(Generation), useValue: gens },
+        { provide: getRepositoryToken(SystemConfig), useValue: { findOneBy: jest.fn().mockResolvedValue(null) } },
+        { provide: getRepositoryToken(AiCallLog), useValue: { find: jest.fn() } },
+        { provide: getRepositoryToken(DownloadLog), useValue: { create: jest.fn(), save: jest.fn() } },
+        { provide: 'BULL_QUEUE_AI_GENERATE', useValue: { add: jest.fn() } },
+        { provide: CreditLedgerService, useValue: { consume: jest.fn(), refund: jest.fn() } },
+        { provide: REDIS_CLIENT, useValue: { eval: jest.fn().mockResolvedValue(1) } },
+        { provide: NotificationService, useValue: { create: jest.fn() } },
+        { provide: OssService, useValue: oss },
+      ],
+    }).compile();
+
+    service = moduleRef.get(GenerateService);
+  });
+
+  function mockRow(overrides: Partial<Generation> = {}): Generation {
+    return {
+      id: GEN_ID,
+      userId: USER_ID,
+      originalUrl: RAW_ORIGINAL,
+      resultUrl: RAW_RESULT,
+      presetKeys: ['nose_bridge_lift'],
+      promptText: 'subtle',
+      modelUsed: 'wanx-v1-mock',
+      creditsCost: 2,
+      status: GenerationStatus.SUCCESS,
+      errorMsg: null,
+      expiresAt: new Date(Date.now() + 30 * 86400_000),
+      createdAt: new Date(),
+      ...overrides,
+    } as Generation;
+  }
+
+  it('detail() returns the row with originalUrl/resultUrl wrapped through signedUrl', async () => {
+    gens.findOne.mockResolvedValue(mockRow() as any);
+
+    const { generation } = await service.detail(USER_ID, GEN_ID);
+
+    // Both URLs must be wrapped — the right side (result) AND
+    // the left side of the compare slider (original). Without
+    // the wrap, the browser sees the raw key and 404s.
+    expect(generation.originalUrl).toBe(SIGNED_ORIGINAL);
+    expect(generation.resultUrl).toBe(SIGNED_RESULT);
+    expect(oss.signedUrl).toHaveBeenCalledWith(RAW_ORIGINAL, expect.any(Number));
+    expect(oss.signedUrl).toHaveBeenCalledWith(RAW_RESULT, expect.any(Number));
+  });
+
+  it('list() wraps originalUrl/resultUrl on every item in the page', async () => {
+    const rows = [
+      mockRow({ id: 'gen-a' }),
+      mockRow({ id: 'gen-b', originalUrl: `uploads/${USER_ID}/b.jpg`, resultUrl: 'gen/b.jpg' }),
+    ];
+    gens.findAndCount.mockResolvedValue([rows as any, 2]);
+
+    const out = await service.list(USER_ID, { page: 1, pageSize: 20 });
+
+    expect(out.items).toHaveLength(2);
+    for (const item of out.items) {
+      expect(item.originalUrl).toMatch(/^\/api\/oss\/dev-file\//);
+      expect(item.resultUrl).toMatch(/^\/api\/oss\/dev-file\//);
+      // Must NOT echo the raw key — the bug we're fixing.
+      expect(item.originalUrl).not.toBe(RAW_ORIGINAL);
+      expect(item.resultUrl).not.toBe(RAW_RESULT);
+    }
+  });
+
+  it('status() only wraps resultUrl when the generation is SUCCESS', async () => {
+    // While pending/processing, resultUrl is null in the DB —
+    // signedUrl must NOT be called with a null/undefined input.
+    gens.findOne.mockResolvedValue(mockRow({ status: GenerationStatus.PENDING, resultUrl: null }) as any);
+
+    const s = await service.status(USER_ID, GEN_ID);
+
+    expect(s.status).toBe(GenerationStatus.PENDING);
+    expect(s.result_url).toBeNull();
+    // signedUrl should not have been invoked for a null result.
+    expect(oss.signedUrl).not.toHaveBeenCalled();
+
+    // On success it must wrap.
+    gens.findOne.mockResolvedValue(mockRow() as any);
+    const s2 = await service.status(USER_ID, GEN_ID);
+    expect(s2.result_url).toBe(SIGNED_RESULT);
+    expect(oss.signedUrl).toHaveBeenCalledWith(RAW_RESULT, expect.any(Number));
+  });
+
+  it('list() is robust when resultUrl is null (e.g. still pending)', async () => {
+    const rows = [mockRow({ id: 'gen-pending', resultUrl: null, status: GenerationStatus.PENDING })];
+    gens.findAndCount.mockResolvedValue([rows as any, 1]);
+
+    const out = await service.list(USER_ID, {});
+
+    // originalUrl still gets wrapped (the row is real), resultUrl
+    // stays null because there's nothing to sign yet.
+    expect(out.items[0].originalUrl).toBe(SIGNED_ORIGINAL);
+    expect(out.items[0].resultUrl).toBeNull();
+  });
+});

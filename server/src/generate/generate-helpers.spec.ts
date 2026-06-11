@@ -76,7 +76,12 @@ describe('GenerateService helpers (Task 26)', () => {
     notif = { create: jest.fn() } as any;
     oss = {
       upload: jest.fn(),
-      signedUrl: jest.fn().mockResolvedValue('https://signed.example.com/gen-1?sig=xxx&exp=...'),
+      // Identity pass-through: tests in this file exercise control
+      // flow and row shape, not URL wrapping. The dedicated
+      // "wrap stored OSS keys" describe block in
+      // generate.service.spec.ts covers the wrap itself with its
+      // own mock.
+      signedUrl: jest.fn((k: string) => Promise.resolve(k)),
     } as any;
 
     const moduleRef = await Test.createTestingModule({
@@ -135,7 +140,9 @@ describe('GenerateService helpers (Task 26)', () => {
 
       const r = await service.list(USER_ID, { page: 1, pageSize: 20 });
 
-      expect(r.items).toBe(items);
+      // r.items is a new array (the service presents each row
+      // through oss.signedUrl), so use toEqual not toBe.
+      expect(r.items).toEqual(items);
       expect(r.total).toBe(12);
       expect(r.page).toBe(1);
       expect(r.pageSize).toBe(20);
@@ -209,7 +216,11 @@ describe('GenerateService helpers (Task 26)', () => {
       ] as any);
 
       const r = await service.detail(USER_ID, GEN_ID);
-      expect(r.generation).toBe(gen);
+      // r.generation is a shallow-cloned presentUrls result, not
+      // the same object reference as `gen`. The shared oss mock
+      // does an identity pass-through, so the field values are
+      // identical and toEqual is the right check.
+      expect(r.generation).toEqual(gen);
       expect(r.ai_logs).toHaveLength(1);
       expect(aiLogs.find).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -260,7 +271,12 @@ describe('GenerateService helpers (Task 26)', () => {
     it('returns a signed URL (5min TTL) + writes a download log', async () => {
       gens.findOne.mockResolvedValue(makeGen({ status: GenerationStatus.SUCCESS }));
       const r = await service.downloadUrl(USER_ID, GEN_ID);
-      expect(r.url).toBe('https://signed.example.com/gen-1?sig=xxx&exp=...');
+      // The identity pass-through on the shared oss mock means
+      // the returned URL is whatever was in the row. The test
+      // only needs to confirm downloadUrl delegates to signedUrl
+      // and records the download — the wrap itself is covered
+      // by the dedicated describe block in generate.service.spec.
+      expect(r.url).toBe('https://oss.example.com/gen/gen-1.jpg');
       expect(r.expires_in).toBe(300);
       expect(oss.signedUrl).toHaveBeenCalledWith(
         'https://oss.example.com/gen/gen-1.jpg',

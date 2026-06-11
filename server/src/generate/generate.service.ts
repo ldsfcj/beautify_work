@@ -246,10 +246,14 @@ export class GenerateService {
    */
   async status(userId: string, id: string): Promise<StatusResult> {
     const g = await this.findOwnedOrThrow(userId, id);
+    const resultUrl =
+      g.status === GenerationStatus.SUCCESS && g.resultUrl
+        ? await this.oss.signedUrl(g.resultUrl, 300)
+        : null;
     return {
       id: g.id,
       status: g.status,
-      result_url: g.status === GenerationStatus.SUCCESS ? g.resultUrl : null,
+      result_url: resultUrl,
     };
   }
 
@@ -258,6 +262,10 @@ export class GenerateService {
    * are always excluded from the default view (a soft-delete is
    * effectively a hide, not a purge — the row stays in the DB for
    * audit; the user just can't see it in their list).
+   *
+   * Each item is passed through `presentUrls` so the client sees
+   * a browser-loadable URL on `originalUrl` / `resultUrl`, not
+   * the bare OSS key.
    */
   async list(userId: string, opts: ListOptions = {}): Promise<ListResult> {
     const page = Math.max(1, opts.page ?? 1);
@@ -273,13 +281,14 @@ export class GenerateService {
       where.status = Not(GenerationStatus.DELETED);
     }
 
-    const [items, total] = await this.gens.findAndCount({
+    const [rows, total] = await this.gens.findAndCount({
       where,
       order: { createdAt: 'DESC' },
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
 
+    const items = await Promise.all(rows.map((r) => this.presentUrls(r)));
     return { items, total, page, pageSize };
   }
 
@@ -288,14 +297,21 @@ export class GenerateService {
    * AI call logs so the user can see the vendor + latency when
    * the model degrades (handy for "why does it look weird?"
    * support tickets).
+   *
+   * The stored `originalUrl` and `resultUrl` are bare OSS keys
+   * (e.g. `uploads/<id>/x.png` or `gen/<uuid>.jpg`); we wrap
+   * them through `OssService.signedUrl()` so the browser can
+   * actually load them. Without the wrap, `<img :src="…">`
+   * resolves the key as a same-origin relative path and 404s.
    */
   async detail(userId: string, id: string): Promise<DetailResult> {
-    const generation = await this.findOwnedOrThrow(userId, id);
+    const row = await this.findOwnedOrThrow(userId, id);
     const ai_logs = await this.aiLogs.find({
       where: { generationId: id },
       order: { createdAt: 'DESC' },
       take: 5,
     });
+    const generation = await this.presentUrls(row);
     return { generation, ai_logs };
   }
 
@@ -351,6 +367,25 @@ export class GenerateService {
   }
 
   // ── private helpers ────────────────────────────────────────────────
+
+  /**
+   * Wrap a Generation's stored `originalUrl` / `resultUrl` (which
+   * are bare OSS keys — `uploads/<id>/x.png`, `gen/<uuid>.jpg`)
+   * through `OssService.signedUrl()` so the browser can load
+   * them. Returns a shallow clone with the wrapped fields; the
+   * underlying entity is left untouched so TypeORM's identity
+   * map stays consistent.
+   *
+   * `resultUrl` may be `null` for rows that haven't been
+   * processed yet — those are passed through unchanged. A 5-min
+   * TTL matches the `downloadUrl` endpoint's contract so the
+   * `<img>` lifetime is the same as a download link.
+   */
+  private async presentUrls(g: Generation): Promise<Generation> {
+    const originalUrl = await this.oss.signedUrl(g.originalUrl, 300);
+    const resultUrl = g.resultUrl ? await this.oss.signedUrl(g.resultUrl, 300) : null;
+    return { ...g, originalUrl, resultUrl };
+  }
 
   private async findOwnedOrThrow(userId: string, id: string): Promise<Generation> {
     const g = await this.gens.findOne({ where: { id, userId } });
