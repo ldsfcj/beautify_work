@@ -40,24 +40,24 @@ describe('OssService (dev fallback)', () => {
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
 
-  it('uploads a buffer and returns a file:// URL', async () => {
+  it('uploads a buffer and returns a server-relative dev-file URL', async () => {
     const buf = Buffer.from('hello world');
     const url = await service.upload('gen/abc.jpg', buf);
-    expect(url.startsWith('file://')).toBe(true);
-    const written = await fs.readFile(url.replace('file://', ''));
+    expect(url).toBe('/api/oss/dev-file/gen/abc.jpg');
+    const written = await fs.readFile(path.join(tmpRoot, '.oss-dev', 'gen', 'abc.jpg'));
     expect(written.equals(buf)).toBe(true);
   });
 
   it('creates intermediate directories on demand', async () => {
     const buf = Buffer.from('x');
-    const url = await service.upload('a/b/c/d.jpg', buf);
-    const stat = await fs.stat(url.replace('file://', ''));
+    await service.upload('a/b/c/d.jpg', buf);
+    const stat = await fs.stat(path.join(tmpRoot, '.oss-dev', 'a', 'b', 'c', 'd.jpg'));
     expect(stat.isFile()).toBe(true);
   });
 
-  it('returns a file:// URL from signedUrl in dev mode', async () => {
+  it('signedUrl in dev mode returns a server-relative dev-file URL', async () => {
     const url = await service.signedUrl('gen/abc.jpg', 60);
-    expect(url.startsWith('file://')).toBe(true);
+    expect(url).toBe('/api/oss/dev-file/gen/abc.jpg');
   });
 
   it('different keys produce different URLs', async () => {
@@ -85,5 +85,42 @@ describe('OssService (dev fallback)', () => {
 
   it('exists returns false for a key that was never written', async () => {
     expect(await service.exists('uploads/user-1/missing.jpg')).toBe(false);
+  });
+
+  // The dev fallback must return a URL the browser can actually
+  // load. The previous `file://` URLs were a real load-bearing
+  // bug: a `<img src="file:///...">` from a `http://localhost`
+  // page is blocked by the browser's same-origin policy and
+  // renders as a broken image (or a black box under Vant). The
+  // fix routes dev reads through `GET /api/oss/dev-file/:key`
+  // so the server itself serves the bytes — same shape as the
+  // production signed-URL flow, just local.
+  it('dev signedUrl returns a server-relative URL the browser can fetch', async () => {
+    const url = await service.signedUrl('gen/abc.jpg', 60);
+    expect(url.startsWith('http')).toBe(false);
+    expect(url.startsWith('file://')).toBe(false);
+    expect(url).toBe('/api/oss/dev-file/gen/abc.jpg');
+  });
+
+  it('dev upload returns a server-relative URL the browser can fetch', async () => {
+    const buf = Buffer.from('hello world');
+    const url = await service.upload('gen/abc.jpg', buf);
+    expect(url.startsWith('file://')).toBe(false);
+    expect(url).toBe('/api/oss/dev-file/gen/abc.jpg');
+    // The upload must still write the bytes to disk so the
+    // dev-file endpoint has something to serve.
+    const written = await fs.readFile(path.join(tmpRoot, '.oss-dev', 'gen', 'abc.jpg'));
+    expect(written.equals(buf)).toBe(true);
+  });
+
+  it('signedUrl is idempotent when the input is already a dev-file URL', async () => {
+    // Real call site: downloadUrl endpoint reads
+    // g.resultUrl from the DB and hands it to signedUrl.
+    // The DB stores whatever upload() returned, which is
+    // the dev-file URL — passing that through signedUrl
+    // must not double-wrap it.
+    const uploaded = await service.upload('gen/abc.jpg', Buffer.from('x'));
+    const reSigned = await service.signedUrl(uploaded, 60);
+    expect(reSigned).toBe(uploaded);
   });
 });

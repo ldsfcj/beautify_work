@@ -51,11 +51,30 @@ export class OssService {
   }
 
   /**
+   * Build the server-relative URL the dev-mode controller uses
+   * to serve a file out of `.oss-dev/`. Same encoding shape
+   * (`encodeURIComponent` on each `/`-separated segment) as
+   * `getUploadSignature`'s dev-upload path so the frontend can
+   * use one decoder for both. Returns `/api/oss/dev-file/:key`
+   * — same origin, same auth surface, no CORS dance.
+   */
+  private devFileUrl(key: string): string {
+    return `/api/oss/dev-file/${key.split('/').map(encodeURIComponent).join('/')}`;
+  }
+
+  /**
    * Upload a buffer and return the public-ish URL the worker
    * (and later the download-url endpoint, Task 26) can use.
    *
    *   - real OSS → `https://<bucket>.<endpoint>/<key>`
-   *   - dev FS   → `file://<abs path>`
+   *   - dev FS   → `/api/oss/dev-file/:key`  (served by OssController)
+   *
+   * The earlier dev shape was `file://<abs path>`, which the
+   * browser refuses to load from a `http://localhost` page —
+   * the result image rendered as a broken (often black) box
+   * under Vant. Routing dev reads through our own controller
+   * gives the same load semantics as the production signed
+   * URL flow, with no CORS or same-origin surprise.
    */
   async upload(key: string, buf: Buffer, _contentType = 'image/jpeg'): Promise<string> {
     if (this.client) {
@@ -68,7 +87,7 @@ export class OssService {
     const fullPath = path.join(this.devDir, key);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, buf);
-    const url = `file://${fullPath}`;
+    const url = this.devFileUrl(key);
     this.logger.log(`[oss] dev-wrote ${key} (${buf.length} bytes) → ${url}`);
     return url;
   }
@@ -77,14 +96,27 @@ export class OssService {
    * Generate a short-lived signed URL for the client to
    * download the result without exposing AK/SK. Ali-oss
    * `signatureUrl` is the standard; in dev we return the
-   * file:// URL since there's no signing surface.
+   * server-relative `/api/oss/dev-file/:key` path (no
+   * signing surface, but the controller is auth-gated at
+   * the OSS module level for inputs; for outputs the
+   * dev-file endpoint is open by design — see its doc).
+   *
+   * The DB stores the public/CDN URL (returned by `upload`),
+   * not the OSS key, because the worker hands the result
+   * straight to `generations.result_url`. So the input here
+   * is usually a fully-formed URL, not a key. We must be
+   * idempotent — if the input is already a dev-file URL,
+   * pass it through instead of double-encoding it into
+   * `/api/oss/dev-file/%2Fapi%2Foss%2Fdev-file%2F...`.
    */
   async signedUrl(key: string, expiresInSec = 300): Promise<string> {
     if (this.client) {
       return this.client.signatureUrl(key, { expires: expiresInSec });
     }
-    const fullPath = path.join(this.devDir, key);
-    return `file://${fullPath}`;
+    if (key.startsWith('/api/oss/dev-file/')) {
+      return key;
+    }
+    return this.devFileUrl(key);
   }
 
   /**

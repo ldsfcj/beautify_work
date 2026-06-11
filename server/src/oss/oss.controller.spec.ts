@@ -1,5 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { EventEmitter } from 'events';
+import { promises as fs } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { OssController } from './oss.controller';
 import { OssService } from './oss.service';
 
@@ -205,6 +209,120 @@ describe('OssController', () => {
       });
 
       expect(oss.upload).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── dev-file ─────────────────────────────────────────────────────
+  // The dev-file endpoint is what makes the upload/download
+  // dev flow actually viewable in a browser. Earlier dev mode
+  // returned `file://` URLs that the browser refused to load
+  // (rendering as a broken / black image), so this endpoint is
+  // the load-bearing piece of the dev-fallback story. Path-
+  // traversal hardening is the security gate since the
+  // endpoint is unauthenticated by design.
+
+  describe('GET /dev-file/:key', () => {
+    let tmpRoot: string;
+
+    beforeEach(async () => {
+      tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'oss-ctrl-test-'));
+      // Point the service's devDir at our tmpdir so writes
+      // are isolated from the real `.oss-dev/`.
+      (controller as any).oss.devDir = path.join(tmpRoot, '.oss-dev');
+    });
+
+    afterEach(async () => {
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    });
+
+    function mockRes() {
+      // Express's response object is a Writable stream. The
+      // controller calls `createReadStream(...).pipe(res)` and
+      // `pipe()` requires the destination to expose `on()` /
+      // `write()` / `end()`. EventEmitter gives us `on()` and a
+      // `pipe()` shim records the call.
+      const ee = new EventEmitter() as any;
+      const headers: Record<string, string> = {};
+      ee.setHeader = jest.fn((k: string, v: string) => { headers[k] = v; });
+      ee.getHeader = jest.fn((k: string) => headers[k]);
+      ee._headers = headers;
+      ee.pipe = jest.fn().mockReturnValue(ee);
+      ee.write = jest.fn();
+      ee.end = jest.fn();
+      return ee;
+    }
+
+    it('streams an existing file with the correct Content-Type', async () => {
+      const key = 'gen/abc.jpg';
+      const fullPath = path.join(tmpRoot, '.oss-dev', 'gen', 'abc.jpg');
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, Buffer.from('jpeg-bytes-here'));
+
+      const res = mockRes();
+      // We don't observe the streamed bytes here — `pipe()` is
+      // a source-stream operation, not a dest method, so any
+      // mock of `res.pipe` would be wrong. The fact that the
+      // call didn't throw + the headers landed is enough proof
+      // the controller reached the streaming line.
+      await expect(controller.devFile(key, res)).resolves.toBeUndefined();
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Cache-Control',
+        expect.stringContaining('max-age='),
+      );
+    });
+
+    it('uses image/png for .png keys', async () => {
+      const key = 'gen/xyz.png';
+      const fullPath = path.join(tmpRoot, '.oss-dev', 'gen', 'xyz.png');
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, Buffer.from('png-bytes'));
+
+      const res = mockRes();
+      await controller.devFile(key, res);
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+    });
+
+    it('falls back to application/octet-stream for unknown extensions', async () => {
+      const key = 'gen/foo.bin';
+      const fullPath = path.join(tmpRoot, '.oss-dev', 'gen', 'foo.bin');
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, Buffer.from('whatever'));
+
+      const res = mockRes();
+      await controller.devFile(key, res);
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');
+    });
+
+    it('returns 404 when the key has nothing on disk', async () => {
+      await expect(
+        controller.devFile('gen/missing.jpg', mockRes()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects keys with `..` segments to block traversal', async () => {
+      await expect(
+        controller.devFile('../etc/passwd', mockRes()),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_KEY' } });
+    });
+
+    it('rejects keys with leading-dot segments', async () => {
+      await expect(
+        controller.devFile('.oss-dev/.git/HEAD', mockRes()),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_KEY' } });
+    });
+
+    it('rejects keys that resolve outside devDir (e.g. absolute escape)', async () => {
+      // A path like `gen/../../etc/passwd` — segments individually
+      // pass the bad-segment check (`..` is caught above), but a
+      // path with only one `..` sandwiched could slip past the
+      // per-segment rule if the segment rule had a hole. Belt-
+      // and-suspenders: the resolved path must stay under devDir.
+      // (Covered indirectly above by the `..` test; keeping this
+      // here as a sentinel for future refactors.)
+      await expect(
+        controller.devFile('gen/../etc/passwd', mockRes()),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_KEY' } });
     });
   });
 });

@@ -2,14 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
+  NotFoundException,
   Param,
   Post,
   Put,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { promises as fs, createReadStream } from 'fs';
+import * as path from 'path';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { OssService } from './oss.service';
 
 /**
@@ -80,17 +87,95 @@ function validateKeyOrThrow(key: string, userId: string): void {
  * OSS-facing HTTP surface.
  *
  *   PUT /api/oss/presign            issue a presigned PUT URL
- *   PUT /api/oss/dev-upload/:key    dev-mode sink for the presign URL
+ *   POST /api/oss/dev-upload/:key   dev-mode sink for the presign URL
+ *   GET /api/oss/dev-file/:key      dev-mode read sink (serves the bytes)
  *
  * The presign endpoint always requires JWT (a real OSS URL
  * generated server-side is the security boundary). The dev-upload
  * sink is also JWT-gated — it lives on our own server so the same
  * token-bearer identity is enforced, with an extra key-prefix
  * check layered on top.
+ *
+ * dev-file is intentionally NOT auth-gated: by the time a user
+ * has a `resultUrl` the listing / detail / download-url endpoints
+ * have already authorized them, and signing local file paths
+ * buys nothing (the file system is the same trust boundary as
+ * the server process). The path-traversal check below is the
+ * sole gate — anything that resolves outside `.oss-dev/` is
+ * rejected with 400.
  */
 @Controller('oss')
 export class OssController {
+  /** Files in `.oss-dev/` use these Content-Types. Anything
+   * else is served as `application/octet-stream` so the browser
+   * falls back to "download as file" rather than guessing wrong. */
+  private static readonly EXT_TO_CT: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+  };
+
   constructor(private readonly oss: OssService) {}
+
+  @Get('dev-file/:key(*)')
+  @Public()
+  async devFile(
+    @Param('key') key: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const decoded = decodeURIComponent(key);
+
+    // Path-traversal guard: every segment must be a plain
+    // name (no `..`, no leading dot, no backslash, no NUL).
+    // The result key shape is `gen/<uuid>.jpg` and the upload
+    // key shape is `uploads/<userId>/<file>.<ext>` — both
+    // already match the `validateKeyOrThrow` allow-list, but
+    // dev-file is unauthenticated so we re-validate here.
+    for (const seg of decoded.split('/')) {
+      if (!seg || seg === '..' || seg.startsWith('.') || seg.includes('\\') || seg.includes('\0')) {
+        throw new BadRequestException({
+          code: 'INVALID_KEY',
+          message: 'key 含非法段',
+        });
+      }
+    }
+
+    const devDir = (this.oss as any).devDir as string;
+    // In production a real OSS client is configured and signed
+    // URLs are issued instead of dev-file paths. Refuse to
+    // serve anything if we're not actually in dev mode — this
+    // is a belt-and-suspenders gate on top of the path-
+    // traversal check.
+    if (!devDir) {
+      throw new NotFoundException('文件不存在');
+    }
+    const fullPath = path.resolve(devDir, decoded);
+    // Belt-and-suspenders: even with the segment check above,
+    // the resolved path must stay under `devDir`. `path.resolve`
+    // collapses `..`; if the result escapes, refuse.
+    if (!fullPath.startsWith(devDir + path.sep) && fullPath !== devDir) {
+      throw new BadRequestException({
+        code: 'INVALID_KEY',
+        message: 'key 解析后越界',
+      });
+    }
+    try {
+      await fs.access(fullPath);
+    } catch {
+      throw new NotFoundException('文件不存在');
+    }
+
+    const ext = path.extname(fullPath).toLowerCase();
+    const contentType = OssController.EXT_TO_CT[ext] ?? 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    // Dev convenience: cache for an hour so reloads are snappy.
+    // The file is content-addressed by generation id, so a
+    // stale cache is harmless (the row is `success` already).
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    createReadStream(fullPath).pipe(res);
+  }
 
   @Put('presign')
   async presign(
