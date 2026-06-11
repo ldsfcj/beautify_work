@@ -27,53 +27,62 @@
       @load="onLoad"
       class="list"
     >
-      <div
-        v-for="g in items"
-        :key="g.id"
-        class="card"
-        @click="$router.push(`/result/${g.id}`)"
-      >
-        <div class="thumb-wrap">
-          <van-image
-            v-if="g.status === 'success'"
-            :src="g.resultUrl"
-            fit="cover"
-            radius="6"
-            class="thumb"
+      <van-swipe-cell v-for="g in items" :key="g.id">
+        <div
+          class="card"
+          @click="$router.push(`/result/${g.id}`)"
+        >
+          <div class="thumb-wrap">
+            <van-image
+              v-if="g.status === 'success'"
+              :src="g.resultUrl"
+              fit="cover"
+              radius="6"
+              class="thumb"
+            />
+            <div v-else class="thumb-placeholder">
+              <van-icon :name="statusIcon(g.status)" size="36" color="#ccc" />
+              <div class="status-text">{{ statusLabel(g.status) }}</div>
+            </div>
+          </div>
+          <div class="meta">
+            <div class="row">
+              <van-tag :type="statusType(g.status)" size="medium">
+                {{ statusLabel(g.status) }}
+              </van-tag>
+              <span class="time">{{ formatTime(g.createdAt) }}</span>
+            </div>
+            <div class="row presets">
+              <van-tag
+                v-for="k in (g.presetKeys || [])"
+                :key="k"
+                plain
+                type="primary"
+                size="small"
+                class="tag"
+              >{{ presetNameOf(k) }}</van-tag>
+            </div>
+            <div class="row cost">消耗 {{ g.creditsCost }} 积分</div>
+          </div>
+        </div>
+        <template #right>
+          <van-button
+            square
+            type="danger"
+            text="删除"
+            class="delete-btn"
+            @click.stop="onDelete(g)"
           />
-          <div v-else class="thumb-placeholder">
-            <van-icon :name="statusIcon(g.status)" size="36" color="#ccc" />
-            <div class="status-text">{{ statusLabel(g.status) }}</div>
-          </div>
-        </div>
-        <div class="meta">
-          <div class="row">
-            <van-tag :type="statusType(g.status)" size="medium">
-              {{ statusLabel(g.status) }}
-            </van-tag>
-            <span class="time">{{ formatTime(g.createdAt) }}</span>
-          </div>
-          <div class="row presets">
-            <van-tag
-              v-for="k in (g.presetKeys || [])"
-              :key="k"
-              plain
-              type="primary"
-              size="small"
-              class="tag"
-            >{{ presetNameOf(k) }}</van-tag>
-          </div>
-          <div class="row cost">消耗 {{ g.creditsCost }} 积分</div>
-        </div>
-      </div>
+        </template>
+      </van-swipe-cell>
     </van-list>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { showToast } from 'vant';
-import { list as listGenerations } from '@/api/generate';
+import { showConfirmDialog, showToast } from 'vant';
+import { list as listGenerations, remove as removeGeneration } from '@/api/generate';
 import { usePresetStore } from '@/stores/preset';
 
 const preset = usePresetStore();
@@ -150,6 +159,26 @@ const onTabChange = () => {
   fetchPage(1, false);
 };
 
+const onDelete = async (g) => {
+  try {
+    await showConfirmDialog({
+      title: '删除记录',
+      message: '确定要删除这条生成记录吗？删除后不可恢复。',
+      confirmButtonText: '删除',
+      confirmButtonColor: '#ee0a24',
+    });
+  } catch {
+    return; // cancelled
+  }
+  try {
+    await removeGeneration(g.id);
+    items.value = items.value.filter((i) => i.id !== g.id);
+    showToast('已删除');
+  } catch (e) {
+    // interceptor surfaces error
+  }
+};
+
 onMounted(async () => {
   await preset.ensureLoaded();
   await fetchPage(1, false);
@@ -179,6 +208,9 @@ onMounted(async () => {
   padding: 12px;
   margin-bottom: 12px;
   cursor: pointer;
+}
+.delete-btn {
+  height: 100%;
 }
 .thumb-wrap {
   flex-shrink: 0;

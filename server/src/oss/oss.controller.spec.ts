@@ -146,7 +146,7 @@ describe('OssController', () => {
 
   // ── dev-upload ───────────────────────────────────────────────────
 
-  describe('PUT /dev-upload/:key', () => {
+  describe('POST /dev-upload/:key', () => {
     const FILE = {
       fieldname: 'file',
       originalname: 'photo.jpg',

@@ -96,7 +96,7 @@ export class AdminUsersService {
     const user = await this.users.findOne({ where: { id: targetUserId } });
     if (!user) throw new NotFoundException('用户不存在');
 
-    const relatedId = `admin-adjust:${operator.id}:${Date.now()}:${dto.reason.slice(0, 32)}`;
+    const relatedId = `adj:${Date.now()}:${dto.reason.slice(0, 12)}`;
     const { balanceAfter } = await this.credits.recharge(targetUserId, dto.amount, relatedId);
     await this.audit.write({
       adminId: operator.id,

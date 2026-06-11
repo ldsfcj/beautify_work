@@ -1,6 +1,13 @@
 <template>
   <div class="order-create-page">
-    <h2 class="page-title">确认订单</h2>
+    <van-nav-bar
+      title="确认订单"
+      left-arrow
+      @click-left="onBack"
+      class="topbar"
+    />
+
+    <div class="page-body">
 
     <div v-if="pkg" class="pkg-summary">
       <div class="pkg-name">{{ pkg.name }} 套餐</div>
@@ -47,6 +54,7 @@
       cancel-button-text="稍后"
       @confirm="goList"
     />
+    </div>
   </div>
 </template>
 
@@ -97,16 +105,36 @@ const onSubmit = async () => {
 const goList = () => {
   router.replace({ name: 'OrderList' });
 };
+
+const onBack = () => {
+  if (window.history.state?.back) {
+    router.back();
+  } else {
+    router.replace({ name: 'Packages' });
+  }
+};
 </script>
 
 <style scoped>
 .order-create-page {
-  padding: 16px;
+  min-height: 100vh;
 }
-.page-title {
-  font-size: 20px;
+.topbar {
+  background: var(--ma-surface);
+  border-bottom: 1px solid var(--ma-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+:deep(.van-nav-bar__title) {
+  color: var(--ma-primary);
   font-weight: 600;
-  margin: 0 0 16px;
+}
+:deep(.van-nav-bar__left .van-icon) {
+  color: var(--ma-text);
+}
+.page-body {
+  padding: 16px;
 }
 .pkg-summary {
   background: #fff;

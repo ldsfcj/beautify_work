@@ -142,7 +142,7 @@ describe('AdminUsersService', () => {
       expect(credits.recharge).toHaveBeenCalledWith(
         'u-1',
         10,
-        expect.stringMatching(/^admin-adjust:admin-1:\d+:manual bonus$/),
+        expect.stringMatching(/^adj:\d+:manual bonus$/),
       );
       expect(res.balanceAfter).toBe(110);
       // Audit row written for the credit adjust.

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Param,
+  Post,
   Put,
   UploadedFile,
   UseInterceptors,
@@ -113,7 +114,7 @@ export class OssController {
     return this.oss.getUploadSignature(body.key, body.contentType, expiresIn);
   }
 
-  @Put('dev-upload/:key(*)')
+  @Post('dev-upload/:key(*)')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES } }))
   async devUpload(
     @CurrentUser() user: JwtPayload,

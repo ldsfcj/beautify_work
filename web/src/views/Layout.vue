@@ -30,10 +30,10 @@
 
     <!-- Bottom tabbar on home routes (every device). -->
     <van-tabbar route v-if="showTabbar">
-      <van-tabbar-item to="/" icon="home-o">工作台</van-tabbar-item>
-      <van-tabbar-item to="/generate" icon="photograph">生成</van-tabbar-item>
-      <van-tabbar-item to="/history" icon="orders-o">历史</van-tabbar-item>
-      <van-tabbar-item to="/profile" icon="user-o">我的</van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'Dashboard' }" icon="home-o">工作台</van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'Generate' }" icon="photograph">生成</van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'History' }" icon="orders-o">历史</van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'Profile' }" icon="user-o">我的</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -56,7 +56,7 @@ const notif = useNotificationStore();
 const HOME_NAMES = new Set(['Dashboard', 'Generate', 'History', 'Profile']);
 
 const isHomeRoute = computed(() => HOME_NAMES.has(route.name));
-const showBack = computed(() => route.name !== 'Dashboard');
+const showBack = computed(() => !isHomeRoute.value);
 const showTabbar = computed(() => !route.meta?.hideTabbar && isHomeRoute.value);
 
 const pageTitle = computed(() => route.meta?.title || '医美咨询');
@@ -169,6 +169,7 @@ onBeforeUnmount(() => {
 <style>
 @media (min-width: 768px) {
   .layout > .content {
+    width: 100%;
     max-width: var(--ma-max-tablet);
     margin: 0 auto;
   }
@@ -189,6 +190,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 1024px) {
   .layout > .content {
+    width: 100%;
     max-width: var(--ma-max-desktop);
   }
 
@@ -209,6 +211,34 @@ onBeforeUnmount(() => {
   }
   .dashboard .credits-value {
     font-size: 36px !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .history-page .list {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .dashboard .recent-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  .dashboard .quick-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+
+  .recharge-page .grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  /* Profile: lay the cards out side by side on wide screens */
+  .profile-page {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .profile-page .danger-zone {
+    grid-column: 1 / -1;
   }
 }
 </style>

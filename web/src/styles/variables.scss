@@ -48,10 +48,13 @@
   --ma-bp-tablet: 768px;
   --ma-bp-desktop: 1024px;
 
-  /* Content width caps */
+  /* Content width caps — fluid on tablet/desktop so content
+   * expands with the viewport instead of being stuck at a fixed
+   * pixel width.  The min() caps prevent lines from getting
+   * unreadably long on ultra-wide monitors. */
   --ma-max-mobile: 100%;
-  --ma-max-tablet: 720px;
-  --ma-max-desktop: 960px;
+  --ma-max-tablet: min(92%, 920px);
+  --ma-max-desktop: min(92%, 1400px);
 
   /* Header */
   --ma-header-height: 48px;

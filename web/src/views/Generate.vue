@@ -160,18 +160,31 @@ onMounted(async () => {
 });
 
 /**
+ * Map MIME type to file extension so the OSS key suffix matches
+ * the actual file format. Sharp/Vips infers the decoder from the
+ * file extension (or magic bytes), so a PNG saved as .jpg causes
+ * "Corrupt JPEG data" errors.
+ */
+const MIME_TO_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+const extFromType = (contentType) => MIME_TO_EXT[contentType] || 'jpg';
+
+/**
  * Build the user-scoped OSS key. `userId` is opaque to the client —
  * we just need a stable unique segment per upload so concurrent
  * uploads from the same user don't collide.
  */
-const buildOssKey = () => {
+const buildOssKey = (contentType) => {
   const ts = Date.now();
   const rand = Math.random().toString(36).slice(2, 10);
-  // userId is a UUID from the auth payload; we keep it opaque.
   const userId = (user.profile?.id || 'anon').replace(/[^0-9a-f-]/gi, '');
-  // Filename segment: timestamp_random, .jpg default — van-uploader
-  // gives us a Blob with a type we can match.
-  return `uploads/${userId}/${ts}_${rand}.jpg`;
+  const ext = extFromType(contentType);
+  return `uploads/${userId}/${ts}_${rand}.${ext}`;
 };
 
 const inferContentType = (file) => {
@@ -188,8 +201,8 @@ const onAfterRead = async (file) => {
   uploading.value = true;
   imageKey.value = '';
   try {
-    const key = buildOssKey();
     const contentType = inferContentType(file);
+    const key = buildOssKey(contentType);
     const { url } = await getPresignedUploadUrl(key, contentType);
     file.message = '上传中…';
     await uploadFileToOss(url, file.file, contentType, ({ loaded, total }) => {
@@ -225,12 +238,12 @@ const onSubmit = async () => {
       preset_keys: selectedKeys.value,
       text: text.value.trim() || undefined,
     });
-    if (!res?.generationId) {
+    if (!res?.generation_id) {
       showToast('提交成功但未返回任务 ID');
       return;
     }
     showToast('已提交，后台生成中…');
-    router.push(`/generating/${res.generationId}`);
+    router.push(`/generating/${res.generation_id}`);
   } catch (e) {
     // axios interceptor already surfaces the dialog/toast.
   } finally {
@@ -241,7 +254,7 @@ const onSubmit = async () => {
 
 <style scoped>
 .generate-page {
-  padding: 8px 0 80px;
+  padding: 8px 0 130px;
 }
 .section {
   margin-bottom: 24px;
@@ -422,5 +435,10 @@ const onSubmit = async () => {
   .preset-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* ── Submit bar sits above the bottom tabbar. */
+:deep(.van-submit-bar) {
+  bottom: var(--van-tabbar-height, 50px);
 }
 </style>
