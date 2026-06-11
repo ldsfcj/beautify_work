@@ -12,3 +12,4 @@ admin/dist/
 .env.local
 .env.production
 cloudfunctions/*/node_modules/
+.claude/settings.local.json

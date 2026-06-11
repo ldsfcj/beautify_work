@@ -69,14 +69,21 @@ npm install
 cp .env.example .env
 # 真实部署时才需要：阿里云 SMS/OSS/AI Key、微信 H5 支付、支付宝
 
-# 4. 启动各端
-cd web    && npm run dev   # http://localhost:5173
-cd admin  && npm run dev   # http://localhost:5174
-cd server && npm run start:dev   # http://localhost:3000/api
+# 4. 启动各端（4 个进程，4 个终端）
+cd web    && npm run dev              # http://localhost:5173
+cd admin  && npm run dev              # http://localhost:5174
+cd server && npm run start:dev        # http://localhost:3000/api
+cd server && npm run start:worker     # Bull worker：消费 ai.generate 队列（不开 HTTP）
 
 # 5. 单元测试
 npm run test:unit
 ```
+
+> **关于 `start:worker`**：worker 是独立进程（详见 `server/src/workers/generate.worker.ts`），API 只负责 enqueue，AI 调用、水印、OSS 上传都在 worker 里跑——这样慢调用不占 API 的事件循环，也方便独立扩缩容。
+>
+> 用 `ts-node --transpile-only` 跑是为了绕开 `nest-cli.json` 的 `deleteOutDir: true`（server watch 重建时会清空 `dist/`，用 dist 跑 worker 会被连带干掉）。`--transpile-only` 是因为 `oss.service.ts` 用了没有类型声明的 `ali-oss`，严格类型检查会失败但运行时无影响——想根治就 `npm i -D @types/ali-oss`。
+>
+> 验证 worker 活着：日志出现 `generate worker is consuming ai.generate jobs`；或 `redis-cli -p 6379 SMEMBERS bull:ai.generate:workers` 能看到 worker id。
 
 ## 任务执行
 
