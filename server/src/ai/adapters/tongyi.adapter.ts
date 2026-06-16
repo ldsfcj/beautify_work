@@ -59,6 +59,12 @@ export class TongyiAdapter implements AiAdapter {
       return this.synthesizePlaceholder(start);
     }
 
+    // Log the request shape so a single grep through worker.log
+    // answers "what prompt + image did we send to DashScope for
+    // generation <id>?" — the modelUsed / image URL / prompt are
+    // the three things you need to reproduce a bad result.
+    this.logRequest(input);
+
     // Key present → real DashScope call (sync multimodal-generation)
     const resultUrl = await this.callMultimodal(apiKey, input);
     this.logger.log(
@@ -76,6 +82,32 @@ export class TongyiAdapter implements AiAdapter {
       costCents: TongyiAdapter.COST_CENTS,
       latencyMs: latency,
     };
+  }
+
+  /**
+   * Emit one structured log line per DashScope call. Includes the
+   * model, prompt (full text — the failure-mode you usually want
+   * to reproduce is "what was the model actually asked to do?"),
+   * and the input image URL with its signature query string
+   * stripped (so the signed URL doesn't leak into long-lived log
+   * files / external aggregators).
+   */
+  private logRequest(input: AiEditInput): void {
+    let safeImage = input.imageSignedUrl;
+    try {
+      const u = new URL(input.imageSignedUrl);
+      // Drop ?Expires=…&Signature=…&OSSAccessKeyId=… — only the
+      // host + path is interesting for debugging.
+      safeImage = `${u.host}${u.pathname}`;
+    } catch {
+      // not a parseable URL (shouldn't happen) — log as-is, masked
+      safeImage = '<unparseable imageSignedUrl>';
+    }
+    this.logger.log(
+      `[tongyi] request model=${TongyiAdapter.MODEL_ID} ` +
+        `image=${safeImage} ` +
+        `prompt=${JSON.stringify(input.prompt)}`,
+    );
   }
 
   // ── Private helpers ───────────────────────────────────────────
