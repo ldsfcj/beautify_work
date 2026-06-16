@@ -3,23 +3,23 @@ import { HttpService } from '@nestjs/axios';
 import {
   BadRequestException,
   BadGatewayException,
-  GatewayTimeoutException,
 } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
-import { AxiosError, AxiosResponse } from 'axios';
+import { AxiosResponse } from 'axios';
 import sharp from 'sharp';
 import { TongyiAdapter } from './tongyi.adapter';
 
 /**
  * Coverage:
  *   1. No API key → mock placeholder (grey 1024×1024 JPEG)
- *   2. API key present → full async flow (submit → poll → download)
+ *   2. API key present → full sync flow (multimodal POST → image URL → GET download)
  *   3. Dashscope 4xx → BadRequestException (no retry)
  *   4. Dashscope 5xx → BadGatewayException (retryable)
  *   5. Dashscope 429 → BadGatewayException (retryable)
- *   6. Task FAILED → BadGatewayException
- *   7. Poll timeout → GatewayTimeoutException
+ *   6. Response without content array → BadGatewayException
+ *   7. Response with content but no image part → BadGatewayException
  *   8. Download failure → BadGatewayException
+ *   9. Network error on multimodal POST → BadGatewayException
  */
 describe('TongyiAdapter', () => {
   function makeAdapter(
@@ -44,11 +44,7 @@ describe('TongyiAdapter', () => {
     return new TongyiAdapter(cfg, http);
   }
 
-  /** Helper: create a fake AxiosResponse */
-  function fakeResponse(
-    data: any,
-    status = 200,
-  ): AxiosResponse {
+  function fakeResponse(data: any, status = 200): AxiosResponse {
     return {
       data,
       status,
@@ -78,57 +74,35 @@ describe('TongyiAdapter', () => {
 
   // ── Full happy path with API key ────────────────────────────
 
-  it('API key present → submit → poll → download', async () => {
-    const postMock = jest
-      .fn()
-      .mockReturnValueOnce(
-        of(
-          fakeResponse(
-            { output: { task_id: 'task-123', task_status: 'PENDING' } },
-            202,
-          ),
-        ),
-      );
+  it('API key present → multimodal POST → download result image', async () => {
+    const postMock = jest.fn().mockReturnValueOnce(
+      of(
+        fakeResponse({
+          output: {
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: {
+                  role: 'assistant',
+                  content: [
+                    { image: 'https://result.example.com/img.png' },
+                  ],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    );
 
-    const getMock = jest
-      .fn()
-      // First poll: still running
-      .mockReturnValueOnce(
-        of(
-          fakeResponse({
-            output: { task_id: 'task-123', task_status: 'RUNNING' },
-          }),
-        ),
-      )
-      // Second poll: succeeded
-      .mockReturnValueOnce(
-        of(
-          fakeResponse({
-            output: {
-              task_id: 'task-123',
-              task_status: 'SUCCEEDED',
-              results: [{ url: 'https://result.example.com/img.png' }],
-            },
-          }),
-        ),
-      )
-      // Download result image
-      .mockReturnValueOnce(
-        of(
-          fakeResponse(
-            Buffer.from('fake-image-data'),
-            200,
-          ),
-        ),
-      );
+    const getMock = jest.fn().mockReturnValueOnce(
+      of(fakeResponse(Buffer.from('fake-image-data'), 200)),
+    );
 
     const adapter = makeAdapter('sk-test-fake', {
       post: postMock,
       get: getMock,
     });
-
-    // Speed up polling in tests by reducing sleep
-    jest.spyOn(adapter as any, 'sleep').mockResolvedValue(undefined);
 
     const result = await adapter.editImage({
       imageSignedUrl: 'https://oss.example.com/input.jpg',
@@ -136,22 +110,27 @@ describe('TongyiAdapter', () => {
     });
 
     expect(result.resultBuffer).toBeInstanceOf(Buffer);
-    expect(result.modelUsed).toBe('wanx2.1-img2img');
+    expect(result.modelUsed).toBe('wan2.7-image');
     expect(result.costCents).toBe(4);
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
 
-    // Verify submit call
+    // Verify multimodal POST shape
     expect(postMock).toHaveBeenCalledTimes(1);
     const [url, body, config] = postMock.mock.calls[0];
-    expect(url).toContain('image-synthesis');
-    expect(body.model).toBe('wanx2.1-img2img');
-    expect(body.input.image_url).toBe('https://oss.example.com/input.jpg');
-    expect(body.input.prompt).toBe('subtle rhinoplasty');
+    expect(url).toContain('multimodal-generation/generation');
+    expect(body.model).toBe('wan2.7-image');
+    expect(body.input.messages).toHaveLength(1);
+    expect(body.input.messages[0].role).toBe('user');
+    const parts = body.input.messages[0].content;
+    expect(parts).toHaveLength(2);
+    expect(parts[0].image).toBe('https://oss.example.com/input.jpg');
+    expect(parts[1].text).toBe('subtle rhinoplasty');
+    expect(body.parameters.size).toBe('1024*1024');
     expect(config.headers.Authorization).toBe('Bearer sk-test-fake');
-    expect(config.headers['X-DashScope-Async']).toBe('enable');
 
-    // Verify poll + download calls
-    expect(getMock).toHaveBeenCalledTimes(3); // 2 polls + 1 download
+    // Verify one download call against the result URL
+    expect(getMock).toHaveBeenCalledTimes(1);
+    expect(getMock.mock.calls[0][0]).toBe('https://result.example.com/img.png');
   });
 
   // ── Error: Dashscope 4xx ────────────────────────────────────
@@ -180,12 +159,7 @@ describe('TongyiAdapter', () => {
 
   it('Dashscope 5xx → BadGatewayException (retryable)', async () => {
     const postMock = jest.fn().mockReturnValueOnce(
-      of(
-        fakeResponse(
-          { message: 'InternalError' },
-          500,
-        ),
-      ),
+      of(fakeResponse({ message: 'InternalError' }, 500)),
     );
 
     const adapter = makeAdapter('sk-test-fake', { post: postMock });
@@ -202,11 +176,53 @@ describe('TongyiAdapter', () => {
 
   it('Dashscope 429 → BadGatewayException (retryable)', async () => {
     const postMock = jest.fn().mockReturnValueOnce(
+      of(fakeResponse({ message: 'Throttling' }, 429)),
+    );
+
+    const adapter = makeAdapter('sk-test-fake', { post: postMock });
+
+    await expect(
+      adapter.editImage({
+        imageSignedUrl: 'https://example.com/x.jpg',
+        prompt: 'test',
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  // ── Error: response missing content array ──────────────────
+
+  it('response without content array → BadGatewayException', async () => {
+    const postMock = jest.fn().mockReturnValueOnce(
+      of(fakeResponse({ output: { choices: [{}] } })),
+    );
+
+    const adapter = makeAdapter('sk-test-fake', { post: postMock });
+
+    await expect(
+      adapter.editImage({
+        imageSignedUrl: 'https://example.com/x.jpg',
+        prompt: 'test',
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  // ── Error: content array but no image part ──────────────────
+
+  it('content has no image part → BadGatewayException', async () => {
+    const postMock = jest.fn().mockReturnValueOnce(
       of(
-        fakeResponse(
-          { message: 'Throttling' },
-          429,
-        ),
+        fakeResponse({
+          output: {
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: [{ text: 'something' }],
+                },
+              },
+            ],
+          },
+        }),
       ),
     );
 
@@ -220,115 +236,34 @@ describe('TongyiAdapter', () => {
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
-  // ── Error: Task FAILED ──────────────────────────────────────
-
-  it('task FAILED → BadGatewayException', async () => {
-    const postMock = jest.fn().mockReturnValueOnce(
-      of(
-        fakeResponse(
-          { output: { task_id: 'task-fail', task_status: 'PENDING' } },
-          202,
-        ),
-      ),
-    );
-
-    const getMock = jest.fn().mockReturnValueOnce(
-      of(
-        fakeResponse({
-          output: {
-            task_id: 'task-fail',
-            task_status: 'FAILED',
-            message: 'ContentFilterBlocked',
-          },
-        }),
-      ),
-    );
-
-    const adapter = makeAdapter('sk-test-fake', {
-      post: postMock,
-      get: getMock,
-    });
-    jest.spyOn(adapter as any, 'sleep').mockResolvedValue(undefined);
-
-    await expect(
-      adapter.editImage({
-        imageSignedUrl: 'https://example.com/x.jpg',
-        prompt: 'test',
-      }),
-    ).rejects.toBeInstanceOf(BadGatewayException);
-  });
-
-  // ── Error: Poll timeout ─────────────────────────────────────
-
-  it('poll timeout → GatewayTimeoutException', async () => {
-    const postMock = jest.fn().mockReturnValueOnce(
-      of(
-        fakeResponse(
-          { output: { task_id: 'task-slow', task_status: 'PENDING' } },
-          202,
-        ),
-      ),
-    );
-
-    // Poll always returns RUNNING (never SUCCEEDED)
-    const getMock = jest.fn().mockReturnValue(
-      of(
-        fakeResponse({
-          output: { task_id: 'task-slow', task_status: 'RUNNING' },
-        }),
-      ),
-    );
-
-    const adapter = makeAdapter('sk-test-fake', {
-      post: postMock,
-      get: getMock,
-    });
-    jest.spyOn(adapter as any, 'sleep').mockResolvedValue(undefined);
-
-    await expect(
-      adapter.editImage({
-        imageSignedUrl: 'https://example.com/x.jpg',
-        prompt: 'test',
-      }),
-    ).rejects.toBeInstanceOf(GatewayTimeoutException);
-  });
-
   // ── Error: Download failure ─────────────────────────────────
 
   it('download failure → BadGatewayException', async () => {
     const postMock = jest.fn().mockReturnValueOnce(
       of(
-        fakeResponse(
-          { output: { task_id: 'task-ok', task_status: 'PENDING' } },
-          202,
-        ),
+        fakeResponse({
+          output: {
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: [{ image: 'https://result.example.com/img.png' }],
+                },
+              },
+            ],
+          },
+        }),
       ),
     );
 
     const getMock = jest
       .fn()
-      // Poll: succeeded
-      .mockReturnValueOnce(
-        of(
-          fakeResponse({
-            output: {
-              task_id: 'task-ok',
-              task_status: 'SUCCEEDED',
-              results: [{ url: 'https://result.example.com/img.png' }],
-            },
-          }),
-        ),
-      )
-      // Download: network error
-      .mockReturnValueOnce(
-        throwError(() => new Error('ECONNREFUSED')),
-      );
+      .mockReturnValueOnce(throwError(() => new Error('ECONNREFUSED')));
 
     const adapter = makeAdapter('sk-test-fake', {
       post: postMock,
       get: getMock,
     });
-    jest.spyOn(adapter as any, 'sleep').mockResolvedValue(undefined);
 
     await expect(
       adapter.editImage({
@@ -338,12 +273,12 @@ describe('TongyiAdapter', () => {
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
-  // ── Error: Submit network error ─────────────────────────────
+  // ── Error: Network error on multimodal POST ────────────────
 
-  it('submit network error → BadGatewayException', async () => {
-    const postMock = jest.fn().mockReturnValueOnce(
-      throwError(() => new Error('ECONNRESET')),
-    );
+  it('multimodal POST network error → BadGatewayException', async () => {
+    const postMock = jest
+      .fn()
+      .mockReturnValueOnce(throwError(() => new Error('ECONNRESET')));
 
     const adapter = makeAdapter('sk-test-fake', { post: postMock });
 
