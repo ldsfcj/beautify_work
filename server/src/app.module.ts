@@ -34,6 +34,16 @@ import { ConfigModule as CfgMod } from '@nestjs/config';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // The project-root `.env` is already loaded in `main.ts`
+      // via `dotenv.config({ path: ROOT_ENV })` before the
+      // AppModule boots — see the comment there for the
+      // background. We still pass `envFilePath` here as a
+      // safety net so that if a dev runs the API from a
+      // different cwd (e.g. via `node dist/main.js`) the
+      // standard @nestjs/config loader still tries to pick up
+      // the canonical locations. The `main.ts` load wins for
+      // ordering because it runs first.
+      envFilePath: ['../.env', '.env'],
       load: [configuration],
       validate: validateEnv,
       cache: true,

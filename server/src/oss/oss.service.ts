@@ -27,13 +27,27 @@ export class OssService {
   private readonly devDir: string;
 
   constructor(cfg: ConfigService) {
-    const ak = cfg.get<string>('oss.accessKeyId');
-    const sk = cfg.get<string>('oss.accessKeySecret');
-    this.bucket = cfg.get<string>('oss.bucket') ?? 'beautify-dev';
-    this.endpoint = cfg.get<string>('oss.endpoint') ?? '';
+    // Read flat env keys — `.env` (and `.env.example`) use the
+    // canonical Aliyun naming `OSS_ACCESS_KEY_ID` / `_SECRET` /
+    // `OSS_BUCKET` / `OSS_REGION`. Don't reach for nested
+    // `oss.accessKeyId` here: there's no such mapping in
+    // `configuration.ts` and the env never had it, so that
+    // lookup silently returns undefined and we fall through to
+    // the dev-FS path even when real AK/SK is present.
+    const ak = cfg.get<string>('OSS_ACCESS_KEY_ID');
+    const sk = cfg.get<string>('OSS_ACCESS_KEY_SECRET');
+    this.bucket = cfg.get<string>('OSS_BUCKET') ?? 'beautify-dev';
+    // `OSS_REGION` (e.g. `oss-cn-hangzhou`) is a region label,
+    // not an endpoint URL. ali-oss expects the full endpoint
+    // `oss-cn-hangzhou.aliyuncs.com`; we synthesize it here
+    // unless the user has already supplied a full endpoint via
+    // `OSS_ENDPOINT` (which takes precedence when set).
+    const region = cfg.get<string>('OSS_REGION') ?? '';
+    const explicitEndpoint = cfg.get<string>('OSS_ENDPOINT') ?? '';
+    this.endpoint = explicitEndpoint || (region ? `${region}.aliyuncs.com` : '');
     this.devDir = path.resolve(process.cwd(), '.oss-dev');
 
-    if (ak && sk) {
+    if (ak && sk && this.bucket) {
       this.client = new OSS({
         accessKeyId: ak,
         accessKeySecret: sk,
@@ -41,11 +55,13 @@ export class OssService {
         endpoint: this.endpoint || undefined,
         secure: true,
       });
-      this.logger.log(`[oss] using Aliyun OSS bucket=${this.bucket}`);
+      this.logger.log(
+        `[oss] using Aliyun OSS bucket=${this.bucket} endpoint=${this.endpoint || '(default)'}`,
+      );
     } else {
       this.client = null;
       this.logger.warn(
-        `[oss] OSS_ACCESS_KEY_ID not set; uploads will be written to ${this.devDir}`,
+        `[oss] OSS_ACCESS_KEY_ID/SECRET/BUCKET not all set; uploads will be written to ${this.devDir}`,
       );
     }
   }

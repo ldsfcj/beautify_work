@@ -57,6 +57,18 @@ export class EnvVars {
 
   @IsUrl({ require_tld: false })
   ADMIN_URL!: string;
+
+  /**
+   * Index signature — passes through every other env var
+   * (TONGYI_API_KEY, OSS_ACCESS_KEY_*, SMS_ACCESS_KEY_*, etc.)
+   * that isn't enumerated above. Without this, `whitelist: true`
+   * in validate() strips them and `assignVariablesToProcess()`
+   * never writes them to process.env, so `ConfigService.get(...)`
+   * returns undefined for any undeclared key — including the
+   * AI vendor key, which would silently route every call to
+   * the no-key placeholder path.
+   */
+  [key: string]: unknown;
 }
 
 /**
@@ -65,7 +77,7 @@ export class EnvVars {
  */
 export function validateEnv(raw: Record<string, unknown>): EnvVars {
   const validated = plainToInstance(EnvVars, raw, { enableImplicitConversion: true });
-  const errors = validateSync(validated, { skipMissingProperties: false, whitelist: true });
+  const errors = validateSync(validated, { skipMissingProperties: false });
   if (errors.length > 0) {
     const formatted = errors
       .map((e) => `${e.property}: ${Object.values(e.constraints ?? {}).join(', ')}`)

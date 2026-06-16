@@ -4,9 +4,34 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import * as express from 'express';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+
+// Load the project-root `.env` BEFORE the Nest DI graph boots.
+// Why: `ConfigModule.forRoot({ envFilePath })` lives inside
+// @nestjs/config and resolves the path against its own internal
+// cwd handling, which doesn't reliably pick up the repo-root
+// `.env` when the server process is started from `server/`.
+// Calling `dotenv.config({ path: <abs path> })` here is the
+// single most predictable way to surface the vars in
+// process.env *before* ConfigModule's forRoot runs and writes
+// the (whitelisted) subset back to process.env via
+// `assignVariablesToProcess`.
+//
+// `dotenv.config` does NOT overwrite vars already in process.env,
+// so a value set in the real shell still wins — this is the
+// expected production-safe behaviour.
+const ROOT_ENV = path.resolve(__dirname, '..', '..', '.env');
+// `override: true` so a stale `process.env.X = ''` from a prior
+// boot (left over by `nest start --watch`, which preserves
+// process.env across hot-reloads) can't block a real value
+// coming from the .env file. dotenv.config skips writes when
+// the key is already present without `override`, which made
+// every reload appear to "lose" the keys.
+dotenv.config({ path: ROOT_ENV, override: true });
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });

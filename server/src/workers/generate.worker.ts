@@ -1,8 +1,20 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 import { AppModule } from '../app.module';
 import { GenerateProcessor } from '../generate/generate.processor';
+
+// Load the project-root `.env` BEFORE the Nest DI graph boots.
+// Mirrors `src/main.ts`: we need AI vendor keys (TONGYI_API_KEY)
+// and OSS credentials in process.env before the adapter
+// services are constructed. See main.ts for the full rationale.
+const ROOT_ENV = path.resolve(__dirname, '..', '..', '..', '.env');
+// `override: true` — see src/main.ts for why (nest --watch
+// keeps process.env across hot reloads; without override a
+// stale '' from an earlier boot would block the real value).
+dotenv.config({ path: ROOT_ENV, override: true });
 
 /**
  * Standalone worker process for the `ai.generate` queue.
