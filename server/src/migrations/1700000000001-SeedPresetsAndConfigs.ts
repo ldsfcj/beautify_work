@@ -75,7 +75,7 @@ export class SeedPresetsAndConfigs1700000000001 implements MigrationInterface {
          '{"perMinute":5,"perDay":50,"burst":3,"downloadPerHour":20}'::jsonb,
          'system'),
         ('ai_models',
-         '{"primary":{"vendor":"tongyi","model":"wanx-v1","enabled":true,"timeoutMs":30000},"secondary":{"vendor":"hunyuan","model":"hunyuan-vision","enabled":true,"timeoutMs":30000},"allowFallback":true}'::jsonb,
+         '{"primary":{"vendor":"tongyi","model":"wanx2.1-img2img","enabled":true,"timeoutMs":30000},"secondary":{"vendor":"hunyuan","model":"hunyuan-vision","enabled":true,"timeoutMs":30000},"allowFallback":true}'::jsonb,
          'system'),
         ('prompt_prefix',
          jsonb_build_object('v', 'medical aesthetic reference photo, frontal view, high detail, '),

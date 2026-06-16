@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { WatermarkService } from './image-watermark';
 import { TongyiAdapter } from './adapters/tongyi.adapter';
 
@@ -73,7 +74,14 @@ describe('WatermarkService', () => {
         k === 'NODE_ENV' ? 'development' : undefined,
       ),
     } as unknown as ConfigService;
-    const adapter = new TongyiAdapter(cfg);
+    // Adapter requires HttpService for the real-API path; this
+    // test only exercises the no-key → mock-synthesis branch, so
+    // any http mock is fine. We assert the no-key shortcut never
+    // touches http below.
+    const http = { post: jest.fn(), get: jest.fn() } as unknown as HttpService;
+    const adapter = new TongyiAdapter(cfg, http);
+    expect(http.post).not.toHaveBeenCalled();
+    expect(http.get).not.toHaveBeenCalled();
     const aiResult = await adapter.editImage({
       imageSignedUrl: 'https://example.invalid/x.jpg',
       prompt: 'subtle rhinoplasty',

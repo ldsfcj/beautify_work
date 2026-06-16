@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HunyuanAdapter } from './adapters/hunyuan.adapter';
 import { MockAdapter } from './adapters/mock.adapter';
@@ -24,6 +25,7 @@ import { SystemConfig } from '../entities/system-config.entity';
  */
 @Module({
   imports: [
+    HttpModule,
     TypeOrmModule.forFeature([PresetItem, Generation, SystemConfig]),
     CreditModule,
   ],
