@@ -11,12 +11,12 @@ import dataSource from './typeorm.config';
  * `entities/` + `migrations/` directories.
  */
 describe('DataSource config', () => {
-  it('initializes with 15 entities and 5 migrations', async () => {
+  it('initializes with 15 entities and 7 migrations', async () => {
     await expect(dataSource.initialize()).resolves.toBeDefined();
     const metadatas = dataSource.entityMetadatas;
     const migrations = dataSource.migrations;
     expect(metadatas).toHaveLength(15);
-    expect(migrations).toHaveLength(5);
+    expect(migrations).toHaveLength(7);
     await dataSource.destroy();
   }, 30000);
 });

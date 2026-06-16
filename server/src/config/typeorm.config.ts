@@ -20,6 +20,8 @@ import { SeedPresetsAndConfigs1700000000001 } from '../migrations/1700000000001-
 import { AddDeletedToGenerationStatus1700000000002 } from '../migrations/1700000000002-AddDeletedToGenerationStatus';
 import { SeedAdminUser1700000000003 } from '../migrations/1700000000003-SeedAdminUser';
 import { AuditLogs1700000000004 } from '../migrations/1700000000004-AuditLogs';
+import { UpdateAiModelToWanx21Img2Img1700000000005 } from '../migrations/1700000000005-UpdateAiModelToWanx21Img2Img';
+import { UpdateAiModelToWan27Image1700000000006 } from '../migrations/1700000000006-UpdateAiModelToWan27Image';
 
 /**
  * Shared DataSource options consumed by:
@@ -54,6 +56,8 @@ export const dataSourceOptions: DataSourceOptions = {
     AddDeletedToGenerationStatus1700000000002,
     SeedAdminUser1700000000003,
     AuditLogs1700000000004,
+    UpdateAiModelToWanx21Img2Img1700000000005,
+    UpdateAiModelToWan27Image1700000000006,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
