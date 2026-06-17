@@ -13,9 +13,6 @@ RUN npm ci --ignore-scripts
 COPY server/ ./server/
 RUN cd server && npx nest build
 
-# Prune devDependencies for production image
-RUN cd server && npm prune --production 2>/dev/null || true
-
 # ── Stage 2: Production ─────────────────────────────────────────
 FROM node:20-alpine AS production
 
@@ -23,8 +20,9 @@ WORKDIR /app
 
 RUN addgroup -g 1001 -S appuser && adduser -S appuser -u 1001 -G appuser
 
+# npm workspaces hoist deps to root node_modules — must copy from root
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/server/dist ./dist
-COPY --from=builder /app/server/node_modules ./node_modules
 COPY --from=builder /app/server/package.json ./
 
 USER appuser
