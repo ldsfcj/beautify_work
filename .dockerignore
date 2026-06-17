@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+.env.production
+.git
+.github
+.oss-dev
+*.log
+coverage
+.DS_Store
+.claude
