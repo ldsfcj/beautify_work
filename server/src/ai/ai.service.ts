@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { AiAdapter, AiEditResult } from './adapters/ai-adapter.interface';
-import { buildPrompt } from './prompt';
+import { buildPrompt, SYSTEM_PROMPT_PREFIX, SYSTEM_PROMPT_SUFFIX } from './prompt';
 import { CreditLedgerService } from '../credit/creditledger.service';
 import { Generation, GenerationStatus } from '../entities/generation.entity';
 import { PresetItem } from '../entities/preset-item.entity';
@@ -80,9 +80,22 @@ export class AiService {
 
   async generate(input: GenerateInput): Promise<AiEditResult> {
     const modelsCfg = await this.loadAiModels();
-    const { prefix, suffix } = await this.loadPromptAffixes();
-    const presetPrompts = await this.resolvePresetPrompts(input.presetKeys);
+    const { prefix: dbPrefix, suffix: dbSuffix } = await this.loadPromptAffixes();
+    // Use structured system prompt by default; fall back to DB config if customised
+    const prefix = dbPrefix || SYSTEM_PROMPT_PREFIX;
+    const suffix = dbSuffix || SYSTEM_PROMPT_SUFFIX;
+    const { prompts: presetPrompts, names: presetNames } = await this.resolvePresetPrompts(input.presetKeys);
     const prompt = buildPrompt(prefix, presetPrompts, input.userText, suffix);
+    let safeImage = input.imageSignedUrl;
+    try {
+      const u = new URL(input.imageSignedUrl);
+      safeImage = `${u.host}${u.pathname}`;
+    } catch {
+      safeImage = '<unparseable imageSignedUrl>';
+    }
+    this.logger.log(
+      `[ai] generation=${input.generationId} presets=${JSON.stringify(input.presetKeys)} presetNames=${JSON.stringify(presetNames)} userText=${JSON.stringify(input.userText ?? '')} image=${safeImage} prompt=${JSON.stringify(prompt)}`,
+    );
 
     const errors: AttemptError[] = [];
     for (const target of [modelsCfg.primary, modelsCfg.secondary]) {
@@ -152,12 +165,18 @@ export class AiService {
     };
   }
 
-  private async resolvePresetPrompts(keys: string[]): Promise<string[]> {
-    if (keys.length === 0) return [];
+  private async resolvePresetPrompts(keys: string[]): Promise<{
+    prompts: string[];
+    names: string[];
+  }> {
+    if (keys.length === 0) return { prompts: [], names: [] };
     const rows = await this.presets.findBy({ key: In(keys) });
     // Preserve the user's picked order; missing keys become a
     // no-op fragment so the prompt still composes cleanly.
-    return keys.map((k) => rows.find((r) => r.key === k)?.defaultPrompt ?? '');
+    return {
+      prompts: keys.map((k) => rows.find((r) => r.key === k)?.defaultPrompt ?? ''),
+      names: keys.map((k) => rows.find((r) => r.key === k)?.name ?? k),
+    };
   }
 
   private async failAndRefund(

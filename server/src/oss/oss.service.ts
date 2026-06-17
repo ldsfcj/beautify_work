@@ -125,7 +125,20 @@ export class OssService {
    * pass it through instead of double-encoding it into
    * `/api/oss/dev-file/%2Fapi%2Foss%2Fdev-file%2F...`.
    */
-  async signedUrl(key: string, expiresInSec = 300): Promise<string> {
+  async signedUrl(keyOrUrl: string, expiresInSec = 300): Promise<string> {
+    // The DB may store a full OSS URL (returned by upload) instead of
+    // a bare key. ali-oss signatureUrl expects a key only, so we
+    // strip the host/prefix when a full URL is passed in.
+    let key = keyOrUrl;
+    if (this.client && keyOrUrl.startsWith('https://')) {
+      try {
+        const u = new URL(keyOrUrl);
+        // e.g. "beautify-ai.oss-cn-beijing.aliyuncs.com" → strip
+        key = u.pathname.slice(1); // drop leading '/'
+      } catch {
+        // not parseable — use as-is
+      }
+    }
     if (this.client) {
       return this.client.signatureUrl(key, { expires: expiresInSec });
     }

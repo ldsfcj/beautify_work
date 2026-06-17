@@ -34,3 +34,20 @@ export function buildPrompt(
   const middle = text ? `${presetPart}, ${text}` : presetPart;
   return `${prefix}${middle}${suffix}`;
 }
+
+/**
+ * Structured system prompt that wraps the preset instructions.
+ * This provides the AI model with a clear role, analysis directive,
+ * preservation rules, and output format — only the specific editing
+ * instructions (step 2) come from the preset default_prompt.
+ */
+export const SYSTEM_PROMPT_PREFIX = `You are a professional medical aesthetic image editing AI. Your task is to generate a post-operative facial photo based on the provided pre-operative photo and the following detailed editing instructions. The output must be a realistic, high-resolution image that accurately reflects the specified changes while preserving all other facial features. IMPORTANT: The output image must have the exact same framing, composition, zoom level, camera angle, and field of view as the input photo — do not crop, zoom, shift, or rotate.
+
+Instructions:
+1. Analyze the pre-operative photo – identify the relevant facial anatomical structures.
+2. Apply the following edits precisely: `;
+
+export const SYSTEM_PROMPT_SUFFIX = `
+3. Preserve ALL other facial features – do not alter skin texture, color, lighting, expression, or any other anatomical structures not mentioned above.
+4. CRITICAL: Maintain the exact same framing, composition, zoom level, and camera angle as the original photo. Do not crop, zoom in, zoom out, shift, or rotate the image. The output must have the same field of view and subject positioning as the input.
+5. Output format: generate a single image file (PNG or JPEG) with the same dimensions and resolution as the input pre-operative photo. No text or annotations should be added to the image.`;
