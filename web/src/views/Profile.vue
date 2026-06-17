@@ -24,9 +24,10 @@
       <div class="row">
         <span class="label">积分</span>
         <span class="value credits">{{ user.credits }}</span>
-        <van-button size="mini" type="primary" plain @click="$router.push('/recharge')">
+        <!-- TODO: 线上支付暂未接入，充值入口屏蔽，后续恢复 -->
+        <!-- <van-button size="mini" type="primary" plain @click="$router.push('/recharge')">
           充值
-        </van-button>
+        </van-button> -->
       </div>
     </div>
 
@@ -41,12 +42,13 @@
       </div>
     </div>
 
-    <div class="card">
+    <!-- TODO: 线上支付暂未接入，订单入口屏蔽，后续恢复 -->
+    <!-- <div class="card">
       <div class="row" @click="$router.push('/orders')">
         <span class="label">我的订单</span>
         <van-icon name="arrow" />
       </div>
-    </div>
+    </div> -->
 
     <div class="danger-zone">
       <van-button block type="primary" plain @click="onLogout" class="logout-btn">

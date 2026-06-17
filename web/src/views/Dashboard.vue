@@ -8,9 +8,10 @@
       <div class="credits-card">
         <div class="credits-label">积分余额</div>
         <div class="credits-value">{{ user.credits }}</div>
-        <van-button size="mini" type="primary" @click="$router.push('/recharge')">
+        <!-- TODO: 线上支付暂未接入，充值入口屏蔽，后续恢复 -->
+        <!-- <van-button size="mini" type="primary" @click="$router.push('/recharge')">
           充值
-        </van-button>
+        </van-button> -->
       </div>
     </div>
 
@@ -23,10 +24,11 @@
         <van-icon name="orders-o" size="32" class="quick-icon" />
         <span>历史</span>
       </div>
-      <div class="quick-item" @click="$router.push('/orders')">
+      <!-- TODO: 线上支付暂未接入，订单入口屏蔽，后续恢复 -->
+      <!-- <div class="quick-item" @click="$router.push('/orders')">
         <van-icon name="balance-o" size="32" class="quick-icon" />
         <span>订单</span>
-      </div>
+      </div> -->
       <div class="quick-item" @click="$router.push('/profile')">
         <van-icon name="user-o" size="32" class="quick-icon" />
         <span>我的</span>
@@ -58,11 +60,12 @@
       </div>
     </section>
 
-    <div class="banner" @click="$router.push('/recharge')">
+    <!-- TODO: 线上支付暂未接入，充值 banner 屏蔽，后续恢复 -->
+    <!-- <div class="banner" @click="$router.push('/recharge')">
       <van-icon name="gem-o" size="20" color="#fff" />
       <span>新人首充 8 折 — 仅限本周</span>
       <van-icon name="arrow" color="#fff" />
-    </div>
+    </div> -->
   </div>
 </template>
 
