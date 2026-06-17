@@ -3,10 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install root workspace deps
+# Copy workspace root + admin package files for npm ci
 COPY package.json package-lock.json ./
 COPY admin/package.json ./admin/
-RUN mkdir -p shared && echo '{"name":"shared","version":"0.0.0"}' > shared/package.json
+
 RUN npm ci --ignore-scripts
 
 # Copy admin source and build

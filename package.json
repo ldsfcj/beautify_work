@@ -2,12 +2,11 @@
   "name": "medical-aesthetics-h5",
   "version": "0.1.0",
   "private": true,
-  "description": "医美咨询 H5 - 根工作区 (web/admin/server/shared)",
+  "description": "医美咨询 H5 - 根工作区 (web/admin/server)",
   "workspaces": [
     "web",
     "admin",
-    "server",
-    "shared"
+    "server"
   ],
   "scripts": {
     "test": "npm run test:unit --workspaces --if-present",

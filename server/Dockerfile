@@ -3,13 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install root workspace deps first (for shared/ etc.)
+# Copy workspace root + server package files for npm ci
 COPY package.json package-lock.json ./
-COPY web/package.json ./web/
-COPY admin/package.json ./admin/
 COPY server/package.json ./server/
-# shared is empty placeholder — create if missing
-RUN mkdir -p shared && echo '{"name":"shared","version":"0.0.0"}' > shared/package.json
 
 RUN npm ci --ignore-scripts
 
