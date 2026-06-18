@@ -22,12 +22,32 @@
   --van-background-2: #f5ebe7;
   --van-text-color: #3d2e2a;
   --van-text-color-2: #6e5b56;
-  --van-text-color-3: #9b8a85;
+  --van-text-color-3: #7a6761;
   --van-border-color: #e8d5cf;
   --van-border-radius: 10px;
   --van-button-border-radius: 10px;
   --van-button-default-height: 44px;
   --van-cell-border-radius: 10px;
+
+  /* ── Toast / Notify / Dialog contrast fixes ───────────
+   *
+   * Vant's Toast renders inside a <Popup> root. Both `.van-popup`
+   * (background: var(--van-popup-background)) and `.van-toast`
+   * (background: var(--van-toast-background)) declare background on
+   * the same element with equal specificity, so the resulting colour
+   * depends on auto-import CSS injection order — sometimes the cream
+   * `--van-popup-background` (= `--van-background-2`, identical to
+   * the page surface) leaks through, making the toast text invisible.
+   * We force the toast to a fully opaque dark surface and pair it
+   * with pure white text (≈ 19:1 contrast, AAA). The same dark
+   * treatment is reused for notify so it stays legible if anyone
+   * wires it up later.
+   */
+  --van-toast-background: #1f1a18;
+  --van-toast-text-color: #ffffff;
+  --van-toast-loading-icon-color: #ffffff;
+  --van-notify-primary-background: #1f1a18;
+  --van-notify-text-color: #ffffff;
 
   /* ── Project tokens ──────────────────────────────────── */
   --ma-primary: #d4a5a0;
@@ -36,7 +56,7 @@
   --ma-surface-white: #ffffff;
   --ma-text: #3d2e2a;
   --ma-text-secondary: #6e5b56;
-  --ma-text-muted: #9b8a85;
+  --ma-text-muted: #7a6761;
   --ma-border: #e8d5cf;
   --ma-danger: #ee0a24;
 

@@ -19,5 +19,25 @@ body {
   box-sizing: border-box;
 }
 
+/* ── Toast contrast safety net ──────────────────────────────
+ *
+ * Vant's Toast renders into a Popup root, so the same DOM node gets
+ * both `.van-popup` (background: var(--van-popup-background), which
+ * resolves to our cream `--van-background-2`) and `.van-toast`
+ * (background: var(--van-toast-background)). Both selectors have
+ * identical specificity (0,0,1,0), and the on-demand CSS injection
+ * order from @vant/auto-import-resolver is not deterministic — in
+ * dev the cream has been observed to win, leaving white-on-cream
+ * text that's nearly invisible. We re-declare the toast background
+ * under `:root:root` (specificity 0,2,0) so it always wins.
+ */
+:root:root .van-toast,
+:root:root .van-toast.van-toast--text,
+:root:root .van-toast.van-toast--html,
+:root:root .van-toast.van-toast--default {
+  background-color: var(--van-toast-background) !important;
+  color: var(--van-toast-text-color) !important;
+}
+
 /* Responsive page-internal grid adjustments are in Layout.vue's
  * unscoped <style> block so they can reach into child components. */
