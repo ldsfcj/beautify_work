@@ -2,7 +2,7 @@
   <div class="placeholder-page">
     <van-empty :description="title">
       <template #image>
-        <van-icon name="underway-o" size="80" color="#ccc" />
+        <van-icon name="underway-o" size="80" color="#7a6761" />
       </template>
       <van-button round type="primary" size="small" @click="$router.push('/')">
         返回工作台

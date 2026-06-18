@@ -41,7 +41,7 @@
               class="thumb"
             />
             <div v-else class="thumb-placeholder">
-              <van-icon :name="statusIcon(g.status)" size="36" color="#ccc" />
+              <van-icon :name="statusIcon(g.status)" size="36" color="#7a6761" />
               <div class="status-text">{{ statusLabel(g.status) }}</div>
             </div>
           </div>
