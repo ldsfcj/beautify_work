@@ -2,7 +2,13 @@
   <div class="history-page">
     <!-- Title rendered by van-nav-bar in Layout.vue -->
 
-    <van-tabs v-model:active="activeTab" sticky @change="onTabChange" class="tabs">
+    <van-tabs
+      v-model:active="activeTab"
+      sticky
+      :offset-top="NAV_BAR_HEIGHT"
+      @change="onTabChange"
+      class="tabs"
+    >
       <van-tab
         v-for="opt in STATUS_TABS"
         :key="opt.value"
@@ -93,6 +99,12 @@ const STATUS_TABS = [
   { value: 'pending', label: '生成中' },
   { value: 'failed', label: '失败' },
 ];
+
+// Vant's <van-nav-bar> defaults to --van-nav-bar-height (46px).
+// Layout.vue wraps it in `position: sticky; top: 0;`, so the sticky
+// tabs need to clear that height — otherwise they pin at top:0 and
+// visually overlap the nav-bar (z-index 99 vs 10).
+const NAV_BAR_HEIGHT = 46;
 
 const STATUS_LABELS = {
   pending: '生成中',
