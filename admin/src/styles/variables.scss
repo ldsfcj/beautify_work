@@ -13,4 +13,10 @@
   --el-color-primary-dark-2: #b88b86;
   --el-border-radius-base: 6px;
   --el-font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+  /* ── Project tokens (muted text) ────────────────────── */
+  --ma-text-muted: #7a6761;
+
+  /* ── Override EP info color to warm palette ─────────── */
+  --el-color-info: #7a6761;
 }

@@ -163,10 +163,10 @@ h2 {
 }
 .mono.small {
   margin-left: 6px;
-  color: #909399;
+  color: var(--ma-text-muted);
 }
 .muted {
-  color: #909399;
+  color: var(--ma-text-muted);
   font-size: 12px;
 }
 .payload {

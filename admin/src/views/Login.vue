@@ -104,7 +104,7 @@ const onSubmit = async () => {
   margin: 0;
   text-align: center;
   font-size: 12px;
-  color: #909399;
+  color: var(--ma-text-muted);
 }
 .hint code {
   background: #f5f5f5;

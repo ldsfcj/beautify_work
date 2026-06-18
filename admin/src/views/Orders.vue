@@ -155,7 +155,7 @@ h2 {
 }
 .muted {
   font-size: 12px;
-  color: #909399;
+  color: var(--ma-text-muted);
   font-family: monospace;
 }
 .pagination {

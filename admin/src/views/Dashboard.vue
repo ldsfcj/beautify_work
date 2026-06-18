@@ -112,7 +112,7 @@ h2 {
 }
 .welcome {
   margin: 0 0 16px;
-  color: #909399;
+  color: var(--ma-text-muted);
   font-size: 13px;
 }
 .section {
@@ -125,7 +125,7 @@ h2 {
   font-weight: 600;
 }
 .kpi-label {
-  color: #909399;
+  color: var(--ma-text-muted);
   font-size: 12px;
 }
 .kpi-value {

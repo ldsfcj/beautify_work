@@ -184,7 +184,7 @@ h2 {
   font-size: 12px;
 }
 .muted {
-  color: #c0c4cc;
+  color: var(--ma-text-muted);
   font-size: 12px;
 }
 .pagination {

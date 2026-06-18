@@ -127,7 +127,7 @@ h2 {
 .hint {
   margin: 0 0 16px;
   font-size: 13px;
-  color: #909399;
+  color: var(--ma-text-muted);
 }
 .value {
   margin: 0;
