@@ -78,7 +78,10 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  // The SPA is mounted under /admin/ behind the main reverse proxy,
+  // so vue-router must use it as the base for both link generation
+  // and the History API fallback. Matches Vite `base` in vite.config.js.
+  history: createWebHistory('/admin/'),
   routes,
 });
 

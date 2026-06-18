@@ -16,6 +16,11 @@ RUN cd admin && npm run build
 # ── Stage 2: Serve with nginx ───────────────────────────────────
 FROM nginx:alpine
 
+# Custom config: the main reverse proxy forwards /admin/... here
+# with the prefix preserved. We rewrite it back to /... internally
+# and provide SPA fallback (vue-router history mode).
+COPY admin/nginx.conf /etc/nginx/conf.d/default.conf
+
 COPY --from=builder /app/admin/dist /usr/share/nginx/html
 
 EXPOSE 80

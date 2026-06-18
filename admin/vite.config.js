@@ -10,6 +10,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // The admin SPA is served behind the main reverse proxy under the
+  // `/admin/` prefix. Build with this base so generated asset URLs
+  // (e.g. `/admin/assets/index-xxx.js`) and vue-router's history
+  // resolution stay in sync with how the reverse proxy routes them.
+  base: '/admin/',
   plugins: [
     vue(),
     // Auto-import Element Plus APIs (ElMessage, ElMessageBox, ...) so we
